@@ -21,10 +21,11 @@ class PiecesWriteBuffer:
         self._buffer[index] = piece
     
     def flush(self, fp: BinaryIO) -> None:
+        piece_size = len(self._buffer[k])
         # this will save some seek time, also probably save some IO buffer flushes
         sorted_keys = sorted(self._buffer)
 
         for k in sorted_keys:
-            fp.seek(k, 0)
+            fp.seek(k * piece_size, 0)
             fp.write(self._buffer[k])
         

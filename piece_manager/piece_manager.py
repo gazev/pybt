@@ -1,3 +1,5 @@
+from typing import Protocol, List
+
 class PieceManager(Protocol):
     """ A class that performs the managment of the pieces in a torrent, such as,
     writting/reading data, selecting piece requests, etc.

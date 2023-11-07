@@ -1,35 +1,40 @@
 from typing import Protocol, Dict, List
+from config import CACHE_SIZE, BUFFER_SIZE
+
+from math import ceil
+
+from torrent import TorrentFile
+from .piece_selection_algorithm import PieceSelectionAlgorithm
+from .piece_manager import PieceManager
 
 from .cache import lru_cache
 from .buffer import PiecesWriteBuffer
-from .piece_selection_algorithm import PieceSelectionAlgorithm
 
-from torrent import TorrentFile
 
 class FilePieceManager(PieceManager): 
     def __init__(self, torrent: TorrentFile, piece_sel_strategy: PieceSelectionAlgorithm):
         self.torrent  = torrent 
-        self.buffer   = PiecesWriteBuffer(torrent.info['piece length']) 
+        self.buffer   = PiecesWriteBuffer(BUFFER_SIZE) 
         self.strategy = piece_sel_strategy
 
         self._downloaded:     int = 0
         self._uploaded:       int = 0
         self._total_piece_nr: int = \
-            int((torrent.info['length'] / torrent.info['piece length']) + 1)
+            ceil((torrent.info['length'] / torrent.info['piece length'])) 
             # round up the value because last piece might not fill the entire space 
 
-    def get_downloaded(self):
+    def get_downloaded(self) -> int:
         return self._downloaded
     
-    def get_uploaded(self):
+    def get_uploaded(self) -> int:
         return self._uploaded
     
-    def get_total_piece_nr(self):
+    def get_total_piece_nr(self) -> int:
         return self._total_piece_nr
 
 
     @property
-    def piece_sel_strategy(self):
+    def piece_sel_strategy(self) -> PieceSelectionAlgorithm:
         return self._strategy
 
 

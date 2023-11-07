@@ -34,8 +34,11 @@ class InfoDict:
 
         self._inner_dict = kwargs
     
+    def to_dict(self) -> Dict:
+        return self._inner_dict
+    
     def __getitem__(self, key):
-        if key not in self._inner_dict:
+        if key in self._inner_dict:
             return self._inner_dict[key]
         
         return None
