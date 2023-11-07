@@ -10,6 +10,12 @@ class PiecesWriteBuffer:
     
     def is_full(self) -> bool:
         return len(self._buffer) >= self._size
+    
+    def has_piece(self, index: int) -> bool:
+        return index in self._buffer
+    
+    def get_piece(self, index: int) -> bytes:
+        return self._buffer[index]
 
     def add(self, index: int, piece: bytes) -> None:
         self._buffer[index] = piece

@@ -1,4 +1,7 @@
-from typing import TypedDict, List, NotRequired
+from __future__ import annotations
+
+from typing import TypedDict, List, NotRequired, Any
+
 import bencode
 
 class BadTorrent(KeyError):
@@ -17,11 +20,23 @@ class InfoDict:
         if self.__required_keys - set(kwargs.keys()):
             raise BadTorrent(f"Missing keys: {self.__required_keys - set(kwargs.keys())}")
 
-        self.info = kwargs
+        if not isinstance(kwargs['name'], bytes):
+            raise BadTorrent('Name is not a string')
+
+        if not isinstance(kwargs['length'], int):
+            raise BadTorrent('Length is not an int')
+
+        if not isinstance(kwargs['piece length'], int):
+            raise BadTorrent('Piece length is not an int')
+
+        if not isinstance(kwargs['pieces'], bytes):
+            raise BadTorrent('Pieces key is not a byte string')
+
+        self._inner_dict = kwargs
     
     def __getitem__(self, key):
-        if key in self.info:
-            return self.info[key]
+        if key not in self._inner_dict:
+            return self._inner_dict[key]
         
         return None
         
@@ -35,17 +50,23 @@ class TorrentFile:
         if self.__required_keys - set(kwargs.keys()):
             raise BadTorrent(f"Missing keys: {self.__required_keys - set(kwargs.keys())}")
 
-        if not isinstance(announce, str):
+        if not isinstance(kwargs['announce'], bytes):
             raise BadTorrent('Announce is not a string')
 
-        if not isinstance(info, dict):
+        if not isinstance(kwargs['info'], dict):
             raise BadTorrent('Info is not a dictionary')
-
-        self.info = kwargs
+        
+        self._inner_dict = kwargs
+        self.__dict__['info'] = InfoDict(**kwargs['info'])
     
-    def __getitem__(self, key):
-        if key in self.info:
-            return self.info[key]
+    def __getitem__(self, key: str) -> Any:
+        if key in self._inner_dict:
+            return self._inner_dict[key]
         
         return None
- 
+
+    @staticmethod
+    def from_file(path: str) -> TorrentFile:
+        with open(path, 'rb') as fp:
+            return TorrentFile(**bencode.load(fp))
+
