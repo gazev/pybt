@@ -1,4 +1,4 @@
-from typing import Protocol
+from typing import Protocol, List
 
 class PieceSelectionAlgorithm(Protocol):
     """ Algorithms  for piece selection. Strategies used by FilePieceManager
@@ -11,7 +11,7 @@ class PieceSelectionAlgorithm(Protocol):
     def update_new_bitfield(self, bitfield: List[bool]):
         raise NotImplementedError
     
-    # Update whenever a peer messages it got a new piece
+    # Update whenever a peer signals it got a new piece
     def update_new_piece(self, index: int):
         raise NotImplementedError
 

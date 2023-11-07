@@ -1,3 +1,5 @@
+from typing import Dict, BinaryIO
+
 class PiecesWriteBuffer:
     """ 
     This is a class that is used to buffer file writes from FilePieceManager
@@ -12,9 +14,9 @@ class PiecesWriteBuffer:
     def add(self, index: int, piece: bytes) -> None:
         self._buffer[index] = piece
     
-    def flush(self, fp):
+    def flush(self, fp: BinaryIO) -> None:
         # this will save some seek time, also probably save some IO buffer flushes
-        sorted_keys = sorted(self.buffer)
+        sorted_keys = sorted(self._buffer)
 
         for k in sorted_keys:
             fp.seek(k, 0)
