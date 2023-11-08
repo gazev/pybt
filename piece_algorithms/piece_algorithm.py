@@ -19,6 +19,3 @@ class PieceSelectionAlgorithm(Protocol):
     def get_next_piece(self):
         raise NotImplementedError
 
-
-class RarestFirstAlgorithm(PieceSelectionAlgorithm):
-    ...

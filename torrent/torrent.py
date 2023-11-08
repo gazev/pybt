@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TypedDict, List, NotRequired, Any
+from typing import Dict, Any
 
 import bencode
 
@@ -34,9 +34,11 @@ class InfoDict:
 
         self._inner_dict = kwargs
     
+
     def to_dict(self) -> Dict:
         return self._inner_dict
     
+
     def __getitem__(self, key):
         if key in self._inner_dict:
             return self._inner_dict[key]
@@ -62,11 +64,13 @@ class TorrentFile:
         self._inner_dict = kwargs
         self.__dict__['info'] = InfoDict(**kwargs['info'])
     
+
     def __getitem__(self, key: str) -> Any:
         if key in self._inner_dict:
             return self._inner_dict[key]
         
         return None
+
 
     @staticmethod
     def from_file(path: str) -> TorrentFile:

@@ -1,1 +1,1 @@
-from .http_tracker import HTTPTracker
+from .tracker import Tracker, PeerResponse
