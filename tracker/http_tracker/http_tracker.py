@@ -32,6 +32,7 @@ from .http_tracker_exceptions import (
 
 from .http_tracker_response import HTTPTrackerResponse
 
+from utils import peer_response_list_from_raw_str
 
 class HTTPTracker(Tracker):
     def __init__(self, client: Client, torrent: TorrentFile, torrent_status: TorrentStatus):
@@ -58,9 +59,8 @@ class HTTPTracker(Tracker):
         if response.failure_reason:
             return []
 
-        return self._peer_response_list_from_raw_str(response.peers) 
+        return peer_response_list_from_raw_str(response.peers) 
         
-
 
     def update_state(self, new_state: str) -> None:
         self._event_state = new_state
@@ -109,26 +109,4 @@ class HTTPTracker(Tracker):
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)
-
-
-    def _peer_response_list_from_raw_str(self, raw_str: bytes) -> List[PeerResponse]:
-        # DO NOT use list comprehension for this, it is unreadable
-        peers = []
-        for i in range(0, len(raw_response), 6):
-            peers.append(
-                PeerResponse(
-                    self._decode_ip(raw_str[i:i+4]), 
-                    self._decode_port(raw_str[i+4:i+6])
-                )
-            )
-
-        return peers
-
-
-    def _decode_ip(self, data: bytes) -> str:
-        return str(ip_address(data))
-    
-
-    def _decode_port(self, data: bytes) -> int:
-        return unpack(">H", data)[0]   
 
