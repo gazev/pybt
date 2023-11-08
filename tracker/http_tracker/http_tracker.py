@@ -8,6 +8,8 @@ from ipaddress import ip_address
 from struct import unpack
 
 
+from client import Client
+
 from tracker import (
     Tracker, 
     PeerResponse
@@ -18,12 +20,22 @@ from piece_manager import (
     TorrentStatus
 )
 
-
 from torrent import TorrentFile
+
+from .http_tracker_exceptions import HTTPTrackerException
+
+from .http_tracker_exceptions import (
+    DeadTrackerException, 
+    RequestRejectedException,
+    BadResponseException,
+)
+
+from .http_tracker_response import HTTPTrackerResponse
 
 
 class HTTPTracker(Tracker):
-    def __init__(self, torrent: TorrentFile, torrent_status: TorrentStatus):
+    def __init__(self, client: Client, torrent: TorrentFile, torrent_status: TorrentStatus):
+        self._client         = client
         self._torrent        = torrent
         self._http_session   = aiohttp.ClientSession()
         self._torrent_status = torrent_status 
@@ -32,12 +44,21 @@ class HTTPTracker(Tracker):
     
 
     async def get_peers(self) -> List[PeerResponse]:
-        response: dict = await self._request_tracker()
+        # NOTE Ideally we would keep a tracker state that would act accordingly to the
+        # Tracker feedback (failure/warning messages and trackers not working), 
+        # but since it's not clear what messages are mostly used we just make the 
 
-        if response is None:
+        try:
+            response: HTTPTrackerResponse = await self._request_tracker()
+        except HTTPTrackerException:
+            # TODO implement multi announce logic
+            raise # since it's not done yet we just do this lol
+
+        # see note on top of func definition
+        if response.failure_reason:
             return []
 
-        raw_response: bytes = response['peers']
+        raw_response: bytes = response.peers
 
         # DONT use list comprehension because it's cursesd 
         peers: List[PeerResponse] = []
@@ -60,30 +81,42 @@ class HTTPTracker(Tracker):
         await self._http_session.close()
 
 
-    async def _request_tracker(self) -> dict | None:
-        try:
-            async with self._http_session.get(self._build_request('start')) as resp:
-                if resp._status != 200:
-                    return None
+    async def _request_tracker(self) -> HTTPTrackerResponse:
+        # yes all this try-catch, can't be worse than if err != nil right?
 
-                return bencode.loads(await resp.read())
-        except Exception as e:
-            # TODO handle exceptions that indicate a dead/broken tracker
-            return None
+        try:
+            async with self._http_session.get(self._build_request()) as resp:
+                if resp.status != 200:
+                    return RequestRejectedException(f"Tracker didn't accept our request, status: {resp.status}") 
+
+                try:
+                    bencode_resp = bencode.loads(await resp.read())
+                except bencode.BencodeDecodingError:
+                    raise BadResponseException("Tracker didn't respond in Bencode format")
+
+                try:
+                    tracker_response = HTTPTrackerResponse(**bencode_resp)
+                except http_tracker_response.InvalidResponseException as e:
+                    raise BadResponseException(str(e))
+
+                return tracker_response 
+
+        except aiohttp.ClientConnectionError as e:
+            raise DeadTrackerException(e.host)
 
 
     def _build_request(self) -> str:
         """ Returns the URL with all query params set for given torrent """
         params = {
             'info_hash':  self._info_hash,
-            'peer_id':    'something1.0',
-            'port':       59321,
-            'downloaded': self._status.get_downloaded(),
-            'uploaded':   self._status.get_uploaded(),
-            'left':       self._status.get_total_piece_nr() - self._status.get_downloaded(),
+            'peer_id':    client.id,
+            'port':       client.port,
+            'downloaded': self._torrent_status.get_downloaded(),
+            'uploaded':   self._torrent_status.get_uploaded(),
+            'left':       self._torrent_status.get_total_piece_nr() - self._torrent_status.get_downloaded(),
             'compact':    1,
             'event':      self._event_state,
-            'numwant':    30
+            'numwant':    client.max_peers
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)
@@ -95,5 +128,4 @@ class HTTPTracker(Tracker):
 
     def _decode_port(self, data: bytes) -> int:
         return unpack(">H", data)[0]   
-
 

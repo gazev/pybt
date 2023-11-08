@@ -1,5 +1,4 @@
-from typing import Protocol, List, Tuple
-
+from typing import Protocol, List
 
 class PeerResponse:
     def __init__(self, ip: str, port: int):
@@ -9,7 +8,6 @@ class PeerResponse:
 
 class Tracker(Protocol):
     async def get_peers(self) -> List[PeerResponse]:
-        """ Returns a list of peers (tuple with IP str and port int) """
+        """ Returns a list of peers """
         raise NotImplementedError
-
 
