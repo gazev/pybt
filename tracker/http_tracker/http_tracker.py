@@ -32,9 +32,11 @@ from .http_tracker_exceptions import (
 
 from .http_tracker_response import HTTPTrackerResponse
 
-from utils import peer_response_list_from_raw_str
+from .utils import peer_response_list_from_raw_str
 
 class HTTPTracker(Tracker):
+    _state = None
+
     def __init__(self, client: Client, torrent: TorrentFile, torrent_status: TorrentStatus):
         self._client         = client
         self._torrent        = torrent
@@ -59,8 +61,8 @@ class HTTPTracker(Tracker):
         if response.failure_reason:
             return []
 
-        return peer_response_list_from_raw_str(response.peers) 
-        
+        return peer_response_list_from_raw_str(response.peers), response.interval
+
 
     def update_state(self, new_state: str) -> None:
         self._event_state = new_state
@@ -98,14 +100,14 @@ class HTTPTracker(Tracker):
         """ Returns the URL with all query params set for given torrent """
         params = {
             'info_hash':  self._info_hash,
-            'peer_id':    client.id,
-            'port':       client.port,
+            'peer_id':    self._client.id,
+            'port':       self._client.port,
             'downloaded': self._torrent_status.get_downloaded(),
             'uploaded':   self._torrent_status.get_uploaded(),
             'left':       self._torrent_status.get_total_piece_nr() - self._torrent_status.get_downloaded(),
             'compact':    1,
             'event':      self._event_state,
-            'numwant':    client.max_peers
+            'numwant':    self._client.max_peers
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)

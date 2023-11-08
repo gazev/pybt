@@ -15,6 +15,8 @@ class HTTPTrackerResponse:
             self.peers      = b''
             return
         
+        self.failure_reason = None
+        
         peers = kwargs.get('peers')
         if peers is None:
             raise InvalidResponseException("No peers key was provided")
@@ -24,7 +26,7 @@ class HTTPTrackerResponse:
         elif 'min interval' in kwargs:
             self.interval = kwargs['min interval']
         else:
-            self.interval = 30
+            self.interval = 30 # default interval if not specified
 
         complete = kwargs.get('complete')
         if complete is None:

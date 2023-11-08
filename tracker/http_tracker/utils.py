@@ -1,10 +1,13 @@
 from typing import List
 from tracker import PeerResponse
 
+from ipaddress import ip_address
+from struct import unpack
+
 def peer_response_list_from_raw_str(raw_str: bytes) -> List[PeerResponse]:
     # DO NOT use list comprehension for this, it is unreadable
     peers = []
-    for i in range(0, len(raw_response), 6):
+    for i in range(0, len(raw_str), 6):
         peers.append(
             PeerResponse(
                 _decode_ip(raw_str[i:i+4]), 
