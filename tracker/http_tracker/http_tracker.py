@@ -58,19 +58,8 @@ class HTTPTracker(Tracker):
         if response.failure_reason:
             return []
 
-        raw_response: bytes = response.peers
-
-        # DONT use list comprehension because it's cursesd 
-        peers: List[PeerResponse] = []
-        for i in range(0, len(raw_response), 6):
-            peers.append(
-                PeerResponse(
-                    self._decode_ip(raw_response[i:i+4]), 
-                    self._decode_port(raw_response[i+4:i+6])
-                )
-            )
+        return self._peer_response_list_from_raw_str(response.peers) 
         
-        return peers
 
 
     def update_state(self, new_state: str) -> None:
@@ -120,6 +109,20 @@ class HTTPTracker(Tracker):
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)
+
+
+    def _peer_response_list_from_raw_str(self, raw_str: bytes) -> List[PeerResponse]:
+        # DO NOT use list comprehension for this, it is unreadable
+        peers = []
+        for i in range(0, len(raw_response), 6):
+            peers.append(
+                PeerResponse(
+                    self._decode_ip(raw_str[i:i+4]), 
+                    self._decode_port(raw_str[i+4:i+6])
+                )
+            )
+
+        return peers
 
 
     def _decode_ip(self, data: bytes) -> str:
