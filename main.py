@@ -10,20 +10,18 @@ from tracker import (
     TrackerException
 )
 
-from piece_manager import (
-    PieceManager, 
+from file_manager import (
+    FileManager, 
     TorrentStatus
 )
 
-
 from piece_algorithms import PieceSelectionAlgorithm
-
 
 # this must all be moved to different files (instanciation will use factories)
 from torrent import TorrentFile
 from tracker.http_tracker import HTTPTracker
 from piece_algorithms.rarest_first import RarestFirstAlgorithm
-from piece_manager.file_piece_manager import FilePieceManager
+from file_manager.single_file_manager import SingleFileManager 
 
 class Run:
     def __init__(self):
@@ -31,23 +29,21 @@ class Run:
         self.active_peers:   Set[PeerResponse]  = set()
 
     async def run(self, peers_nr: int, port: int):
-        client: Client = Client(max_peers=peers_nr, port=port)
+        client = Client(max_peers=peers_nr, port=port)
 
         torrent: TorrentFile = TorrentFile.from_file(path=".stuff/debian.torrent")
         if not torrent['announce'].startswith(b'http'):
             print("Unsupported protocol version! Only HTTP Trackers allowed (for now!)")
 
-        strategy = RarestFirstAlgorithm()
-        piece_manager: PieceManager = FilePieceManager(torrent=torrent, piece_sel_strategy=strategy) 
+        file_manager: FileManager = SingleFileManager(torrent=torrent) 
         # make tracker factory when UDP Trackers are supported 
-        tracker: Tracker = HTTPTracker(client=client, torrent=torrent, torrent_status=piece_manager)
+        tracker: Tracker = HTTPTracker(client=client, torrent=torrent, torrent_status=file_manager)
         # tracker_coro = asyncio.create_task(self.tracker_coro(tracker=tracker))
-
 
         tracker_coro = asyncio.create_task(self.tracker_coro(tracker=tracker))
 
         workers = [
-            asyncio.create_task(self.worker_coro(torrent=torrent, piece_manager=piece_manager))
+            asyncio.create_task(self.worker_coro(torrent=torrent, file_manager=file_manager))
             for _ in range(peers_nr)
         ]
 
@@ -71,8 +67,7 @@ class Run:
         try:
             while True:
                 try:
-                    fetched_peers: List[PeerResponse]
-                    interval: int
+                    fetched_peers: List[PeerResponse]; interval: int
                     fetched_peers, interval = await tracker.get_peers()
                 except TrackerException as e:
                     print(repr(e))
@@ -96,7 +91,7 @@ class Run:
             await tracker.close()
 
 
-    async def worker_coro(self, torrent: TorrentFile, piece_manager: PieceManager):
+    async def worker_coro(self, torrent: TorrentFile, file_manager: FileManager):
         try:
             while True:
                 peer: PeerResponse = await self.peers_queue.get()
