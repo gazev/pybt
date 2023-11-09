@@ -15,8 +15,8 @@ from tracker import (
     PeerResponse
 )
 
-from piece_manager import (
-    PieceManager, 
+from file_manager import (
+    FileManager, 
     TorrentStatus
 )
 
@@ -28,6 +28,7 @@ from .http_tracker_exceptions import (
     DeadTrackerException, 
     RequestRejectedException,
     BadResponseException,
+    GeneralException
 )
 
 from .http_tracker_response import HTTPTrackerResponse
@@ -64,11 +65,19 @@ class HTTPTracker(Tracker):
         return peer_response_list_from_raw_str(response.peers), response.interval
 
 
-    def update_state(self, new_state: str) -> None:
-        self._event_state = new_state
+    async def close(self) -> None:
+        try:
+            resp = await self._http_session.get(self._build_request('stopped'))
+        except Exception as e:
+            # at this point we don't care if we fail
+            print(repr(e), flush=True)
+        
+        await self._close_session()
+        
+        return
 
 
-    async def close_session(self) -> None:
+    async def _close_session(self) -> None:
         await self._http_session.close()
 
 
@@ -76,7 +85,7 @@ class HTTPTracker(Tracker):
         # yes all this try-catch, can't be worse than if err != nil right?
 
         try:
-            async with self._http_session.get(self._build_request()) as resp:
+            async with self._http_session.get(self._build_request(self._event_state)) as resp:
                 if resp.status != 200:
                     return RequestRejectedException(f"Tracker didn't accept our request, status: {resp.status}") 
 
@@ -94,9 +103,11 @@ class HTTPTracker(Tracker):
 
         except aiohttp.ClientConnectionError as e:
             raise DeadTrackerException(e.host)
+        except Exception as e:
+            raise GeneralException(e)
 
 
-    def _build_request(self) -> str:
+    def _build_request(self, event: str) -> str:
         """ Returns the URL with all query params set for given torrent """
         params = {
             'info_hash':  self._info_hash,
@@ -104,9 +115,9 @@ class HTTPTracker(Tracker):
             'port':       self._client.port,
             'downloaded': self._torrent_status.get_downloaded(),
             'uploaded':   self._torrent_status.get_uploaded(),
-            'left':       self._torrent_status.get_total_piece_nr() - self._torrent_status.get_downloaded(),
+            'left':       self._torrent_status.get_total_pieces_nr() - self._torrent_status.get_downloaded(),
             'compact':    1,
-            'event':      self._event_state,
+            'event':      event,
             'numwant':    self._client.max_peers
         }
 

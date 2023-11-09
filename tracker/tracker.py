@@ -14,4 +14,10 @@ class Tracker(Protocol):
         before another request is made
          """
         raise NotImplementedError
+    
+    async def close(self) -> None:
+        """
+        Perform all logic to end communication with Tracker
+        """
+        raise NotImplementedError
 

@@ -56,11 +56,15 @@ class Run:
         except asyncio.CancelledError:
             print("\nSIGINT received, terminating")
 
-        await tracker.close_session()
-
         tracker_coro.cancel()
         for worker in workers:
             worker.cancel()
+        
+        # wait cancellation
+        await tracker_coro
+
+        for t in workers:
+            await t
 
 
     async def tracker_coro(self, tracker: Tracker):
@@ -71,8 +75,8 @@ class Run:
                     interval: int
                     fetched_peers, interval = await tracker.get_peers()
                 except TrackerException as e:
-                    # this will halt execution
-                    print(e)
+                    print(repr(e))
+                    return
 
                 new_peers = set(fetched_peers) - self.active_peers
 
@@ -87,8 +91,9 @@ class Run:
                     continue
                 
                 asyncio.sleep(interval)
+
         except asyncio.CancelledError:
-            return
+            await tracker.close()
 
 
     async def worker_coro(self, torrent: TorrentFile, piece_manager: PieceManager):
@@ -102,6 +107,6 @@ class Run:
 
 
 try:
-    asyncio.run(Run().run(peers_nr=30, port=6881), debug=True)
+    asyncio.run(Run().run(peers_nr=30, port=6881), debug=False)
 except KeyboardInterrupt:
     print("Ended this shit")

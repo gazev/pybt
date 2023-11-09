@@ -22,4 +22,10 @@ class BadResponseException(HTTPTrackerException):
     response
     """
 
+class GeneralException(HTTPTrackerException):
+    """
+    A general exceptino, mostly means the Tracker couldn't be resolved for
+    various reasons such as, malformed URL for example
+    """
+
 
