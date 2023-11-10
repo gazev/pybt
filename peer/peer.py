@@ -28,8 +28,11 @@ class PeerConnection:
         self._reader = None
         self._writer = None
 
-    async def initialize(self):
-        """ Open connectino to peer and complete handshake """
+    async def initialize(self) -> None:
+        """ Open connectino to peer and complete handshake.
+
+        Raises a PeerConnectionError if not unsuccessful 
+        """
         self._reader, self._writer = self._open_conn()
 
         await self._send(protocol.Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
@@ -45,10 +48,10 @@ class PeerConnection:
         open_conn_task = asyncio.open_connection(host=self._ctx.ip, port=self._ctx.port)
 
         try:
-            asyncio.wait_for(
-                await asyncio.open_connection(host=self.ip, port=self.port),
+            reader, writer = await asyncio.wait_for(
+                open_conn_task,
                 timeout=5.0
-            )
+            ) 
         except asyncio.TimeoutError:
             raise PeerConnectionOpenError('Timed out connecting to {self._ctx.ip}:{self._ctx.port}')
         except ConnectionRefusedError:
@@ -56,7 +59,7 @@ class PeerConnection:
         except Exception as e:
             raise PeerConnectionOpenError(repr(e))
         
-        return await open_conn_task
+        return reader, writer 
     
     async def _send(self, msg):
         self.writer.write(msg)
