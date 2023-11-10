@@ -92,7 +92,7 @@ class HTTPTracker(Tracker):
                 try:
                     bencode_resp = bencode.loads(await resp.read())
                 except bencode.BencodeDecodingError:
-                    raise BadResponseException("Tracker didn't respond in Bencode format")
+                    raise BadResponseException(f"Tracker didn't respond in Bencode format")
 
                 try:
                     tracker_response = HTTPTrackerResponse(**bencode_resp)
