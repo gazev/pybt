@@ -18,7 +18,7 @@ class HTTPTrackerResponse:
         
         peers = kwargs.get('peers')
         if peers is None:
-            raise InvalidResponseException("No peers key was provided")
+            raise InvalidResponseException('No peers key was provided')
  
         if 'interval' in kwargs:
             self.interval = kwargs['interval']

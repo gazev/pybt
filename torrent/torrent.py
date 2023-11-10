@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
+
 import bencode
+from hashlib import sha1
 
 class BadTorrent(KeyError):
     """ If we don't have enough information to continue with our version of the
@@ -52,7 +54,7 @@ class TorrentFile:
 
     def __init__(self, **kwargs):
         if self.__required_keys - set(kwargs.keys()):
-            raise BadTorrent(f"Missing keys: {self.__required_keys - set(kwargs.keys())}")
+            raise BadTorrent(f'Missing keys: {self.__required_keys - set(kwargs.keys())}')
 
         if not isinstance(kwargs['announce'], bytes):
             raise BadTorrent('Announce is not a string')
@@ -60,9 +62,12 @@ class TorrentFile:
         if not isinstance(kwargs['info'], dict):
             raise BadTorrent('Info is not a dictionary')
         
+        
+        self.__dict__['info_hash'] =  sha1(bencode.dumps(kwargs['info'])).digest()
+
         self._inner_dict = kwargs
-        self.__dict__['info'] = InfoDict(**kwargs['info'])
-    
+        self._inner_dict['info'] = InfoDict(**kwargs['info'])
+   
 
     def __getitem__(self, key: str) -> Any:
         if key in self._inner_dict:

@@ -43,7 +43,6 @@ class HTTPTracker(Tracker):
         self._torrent        = torrent
         self._http_session   = aiohttp.ClientSession()
         self._torrent_status = torrent_status 
-        self._info_hash      = sha1(bencode.dumps(self._torrent.info.to_dict())).digest()
         self._event_state    = 'started'
     
 
@@ -110,7 +109,7 @@ class HTTPTracker(Tracker):
     def _build_request(self, event: str) -> str:
         """ Returns the URL with all query params set for given torrent """
         params = {
-            'info_hash':  self._info_hash,
+            'info_hash':  self._torrent.info_hash,
             'peer_id':    self._client.id,
             'port':       self._client.port,
             'downloaded': self._torrent_status.get_downloaded(),
