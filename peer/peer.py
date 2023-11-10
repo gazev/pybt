@@ -32,6 +32,18 @@ class Peer:
         self.client  = client
 
         self.conn = PeerConnection(self)
+    
+    def run():
+        """ Main event loop of our communication"""
+        try:
+            self.conn.initialize()
+            # iterator returns message op code and payload
+            async for op_code, message in PeerMessageStream(self.conn):
+                print("Message from peer {self.ip}:{self.port}")
+                print("{op_code}: {payload}")
+        
+        except PeerConnectionError:
+            print(str(PeerConnection))
 
 
 class PeerConnection:
@@ -88,31 +100,42 @@ class PeerConnection:
             raise PeerConnectionReadError('Connection closed from peer {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
             raise PeerConnectionReadError(repr(e))
-    
+
+
+class PeerMessageStream:
+    def __init__(self, ctx: PeerConnection):
+        self._ctx = ctx
+
 
     async def __aiter__(self):
         return self 
 
 
-    async def __anext__(self):
-        read_size = await self._recv(struct.calcsize(">I"))
+    async def __anext__(self) -> Tuple[int, bytes]:
+        """ Returns the message code and payload """
 
-        if read_size == b'':
+        # first 4B in messages indicate the length of the message
+        msg_length = await self._ctx._recv(struct.calcsize(">I"))
+
+        # connection was closed    
+        if msg_length == b'':
             raise StopAsyncIteration
 
-        msg_length = struct.unpack(">I", msg_size)[0]
+        msg_length = struct.unpack('>I', msg_length)[0]
 
+        # keep alive messages identified with <len = 0>
         if msg_length == 0:
-            return
+            return MessageOP.KEEP_ALIVE, None
 
+        # read entire message from stream
+        message = b''
+        while msg_length > 0:
+            buff = await self._ctx._recv(msg_length)
+            message += buff
+            msg_length -= len(data)
+        
+        op_code: int = message[0]
+        payload: bytes = message[1:]
 
-class PeerMessagesStream:
-    def __init__(self, reader: StreamReader, writer: StreamWriter):
-        self._reader = reader
-        self._writer = writer
-
-    def __anext__(self):
-        msg_size = await self._reader
-
-
+        return op_code, payload
 
