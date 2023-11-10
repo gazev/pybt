@@ -12,8 +12,7 @@ from .buffer import FileWriteBuffer
 
 
 class SingleFileManager(FileManager, TorrentStatus): 
-    """
-    Manager for single file torrents
+    """ Manager for single file torrents
 
     Implementing multi file support will build on top of this. This class is a 
     temporary placeholder before full implementation

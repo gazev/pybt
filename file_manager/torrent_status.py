@@ -1,9 +1,7 @@
 from typing import Protocol
 
 class TorrentStatus(Protocol):
-    """ 
-    Class used to keep track of current Torrent status
-     """
+    """ Class used to keep track of current Torrent status """
     def get_uploaded(self) -> int:
         raise NotImplementedError
 

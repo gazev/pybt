@@ -48,3 +48,4 @@ class Request:
 class Cancel:
     def __new__(self, index: int, offset: int):
         return struct.pack('>IBIII', 13, CANCEL, index, offset * size, BLOCK_SIZE)
+

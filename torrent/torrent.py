@@ -5,8 +5,7 @@ from typing import Dict, Any
 import bencode
 
 class BadTorrent(KeyError):
-    """ 
-    If we don't have enough information to continue with our version of the
+    """ If we don't have enough information to continue with our version of the
     protocol
     """
     ...

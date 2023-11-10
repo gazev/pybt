@@ -9,10 +9,12 @@ if TYPE_CHECKING:
     from piece_manager import PieceManager
 
 def lru_cache(cache_size: int):
-    """ 
-    This is a LRU Cache decorator which we use to decorate calls to the read
-    func.If desired, the wrapper can be changed to take *args and **kwargs and 
-    the cache could be indexed by the arguments hashes to become more generic (like functools lru_cache)
+    """ This is a LRU Cache decorator which we use to decorate calls to the read
+    function.
+    
+    If desired, the wrapper can be changed to take *args and **kwargs and 
+    the cache could be indexed by the arguments hashes to become more generic 
+    (like functools lru_cache)
     """
     def decorator(func: Callable[[SingleFileManager, int], bytes]) -> Callable[[SingleFileManager, int], bytes]:
         """ This is our closure environment """

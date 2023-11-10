@@ -10,8 +10,8 @@ def peer_response_list_from_raw_str(raw_str: bytes) -> List[PeerResponse]:
     for i in range(0, len(raw_str), 6):
         peers.append(
             PeerResponse(
-                _decode_ip(raw_str[i:i+4]), 
-                _decode_port(raw_str[i+4:i+6])
+                ip = _decode_ip(raw_str[i:i+4]), 
+                port = _decode_port(raw_str[i+4:i+6])
             )
         )
 

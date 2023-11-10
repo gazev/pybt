@@ -1,6 +1,5 @@
 class InvalidResponseException(KeyError):
-    """
-    If Tracker isn't providing us with specified keys. If this happens it is
+    """ If Tracker isn't providing us with specified keys. If this happens it is
     most likely the Tracker is broken as it isn't obeying to the BEP 1.0 spec
     """
 
