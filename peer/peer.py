@@ -4,6 +4,19 @@ import struct
 from torrent import TorrentFile
 from client import Client
 
+from protocol import Message, FormatStrings
+
+from protocol import (
+    Handshake,
+    KeepAlive,
+    Choke,
+    Unchoke,
+    Interested,
+    NotInterested,
+    Request,
+    Cancel
+)
+
 from .peer_exceptions import (
     PeerConnectionOpenError,
     PeerConnectionReadError
@@ -35,9 +48,9 @@ class PeerConnection:
         """
         self._reader, self._writer = self._open_conn()
 
-        await self._send(protocol.Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
+        await self._send(Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
 
-        response = await self._recv(struct.calcsize)
+        response = await self._recv(struct.calcsize(FormatStrings.Handshae))
 
         if response[28:48] != self._ctx.torrent.info_hash:
             raise PeerConnectionHandshakeError('Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
@@ -75,4 +88,31 @@ class PeerConnection:
             raise PeerConnectionReadError('Connection closed from peer {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
             raise PeerConnectionReadError(repr(e))
+    
+
+    async def __aiter__(self):
+        return self 
+
+
+    async def __anext__(self):
+        read_size = await self._recv(struct.calcsize(">I"))
+
+        if read_size == b'':
+            raise StopAsyncIteration
+
+        msg_length = struct.unpack(">I", msg_size)[0]
+
+        if msg_length == 0:
+            return
+
+
+class PeerMessagesStream:
+    def __init__(self, reader: StreamReader, writer: StreamWriter):
+        self._reader = reader
+        self._writer = writer
+
+    def __anext__(self):
+        msg_size = await self._reader
+
+
 
