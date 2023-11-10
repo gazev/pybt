@@ -24,17 +24,18 @@ from .peer_exceptions import (
 
 class Peer:
     def __init__(self, ip: str, port: int, torrent: TorrentFile, client: Client):
-        self.ip   = ip
-        self.port = port
-        self.state = 'chocked'
+        self.ip    = ip
+        self.port  = port
+        self.state = 'choked'
 
         self.torrent = torrent
         self.client  = client
 
         self.conn = PeerConnection(self)
     
+
     def run():
-        """ Main event loop of our communication"""
+        """ Peer event loop """
         try:
             self.conn.initialize()
             # iterator returns message op code and payload
@@ -52,6 +53,7 @@ class PeerConnection:
         self._ctx = ctx
         self._reader = None
         self._writer = None
+
 
     async def initialize(self) -> None:
         """ Open connectino to peer and complete handshake.
@@ -86,6 +88,7 @@ class PeerConnection:
         
         return reader, writer 
     
+
     async def _send(self, msg):
         self.writer.write(msg)
         await self.writer.drain()
@@ -94,12 +97,18 @@ class PeerConnection:
     async def _recv(self, size):
         # TO DO, i believe this should timeout if we are not receiving messages
         #  for some time since keep-alive messages should be expected 
+        read_task = self.reader.read(size)
+
         try:
-            return await self.reader.read(size)
+            data = await asyncio.wait_for(read_task, timeout=5.0)
+        except TimeoutError:
+            raise PeerConnectionReadError('Timed out peer {self._ctx.ip}:{self._ctx.port}')
         except ConnectionResetError:
             raise PeerConnectionReadError('Connection closed from peer {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
             raise PeerConnectionReadError(repr(e))
+        
+        return data 
 
 
 class PeerMessageStream:
