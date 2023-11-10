@@ -30,9 +30,9 @@ class PeerConnection:
 
     async def initialize(self):
         """ Open connectino to peer and complete handshake """
-        self._open()
+        self._reader, self._writer = self._open_conn()
 
-        self._send(protocol.Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
+        await self._send(protocol.Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
 
         response = await self._recv(struct.calcsize)
 
@@ -40,8 +40,8 @@ class PeerConnection:
             raise PeerConnectionHandshakeError('Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
 
 
-    async def _open(self):
-        """ Opens connection to peer with StreamReader and StreamWriter wrappers """
+    async def _open_conn(self):
+        """ Opens connection to peer, returning StreamReader and StreamWritter instances """
         open_conn_task = asyncio.open_connection(host=self._ctx.ip, port=self._ctx.port)
 
         try:
@@ -56,7 +56,7 @@ class PeerConnection:
         except Exception as e:
             raise PeerConnectionOpenError(repr(e))
         
-        self._reader, self._writer = await open_conn_task
+        return await open_conn_task
     
     async def _send(self, msg):
         self.writer.write(msg)
