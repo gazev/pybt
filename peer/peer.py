@@ -1,14 +1,16 @@
+from typing import Tuple
+
 import asyncio
 import struct
 
 from torrent import TorrentFile
 from client import Client
+from tracker import PeerResponse
 
-from protocol import Message, FormatStrings
+from protocol import MessageOP, FormatStrings
 
 from protocol import (
     Handshake,
-    KeepAlive,
     Choke,
     Unchoke,
     Interested,
@@ -18,14 +20,17 @@ from protocol import (
 )
 
 from .peer_exceptions import (
+    PeerConnectionError,
     PeerConnectionOpenError,
-    PeerConnectionReadError
+    PeerConnectionReadError,
+    PeerConnectionHandshakeError
 )
 
+
 class Peer:
-    def __init__(self, ip: str, port: int, torrent: TorrentFile, client: Client):
-        self.ip    = ip
-        self.port  = port
+    def __init__(self, peer_response: PeerResponse, torrent: TorrentFile, client: Client):
+        self.ip    = peer_response.ip
+        self.port  = peer_response.port 
         self.state = 'choked'
 
         self.torrent = torrent
@@ -34,17 +39,21 @@ class Peer:
         self.conn = PeerConnection(self)
     
 
-    def run():
+    async def run(self):
         """ Peer event loop """
         try:
-            self.conn.initialize()
+            await self.conn.initialize()
             # iterator returns message op code and payload
             async for op_code, message in PeerMessageStream(self.conn):
-                print("Message from peer {self.ip}:{self.port}")
-                print("{op_code}: {payload}")
+                print(f"Message from peer {self.ip}:{self.port}")
+                print(op_code)
         
-        except PeerConnectionError:
-            print(str(PeerConnection))
+        except PeerConnectionError as e:
+            print(str(e))
+            raise
+    
+    async def end(self):
+        await self.conn.close()
 
 
 class PeerConnection:
@@ -60,15 +69,19 @@ class PeerConnection:
 
         Raises a PeerConnectionError if not unsuccessful 
         """
-        self._reader, self._writer = self._open_conn()
+        self._reader, self._writer = await self._open_conn()
 
         await self._send(Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
 
-        response = await self._recv(struct.calcsize(FormatStrings.Handshae))
+        response = await self._recv(struct.calcsize(FormatStrings.HANDSHAKE))
 
         if response[28:48] != self._ctx.torrent.info_hash:
-            raise PeerConnectionHandshakeError('Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
+            raise PeerConnectionHandshakeError(f'Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
 
+    async def close(self):
+        if self._writer:
+            self._writer.close()
+            await self._writer.wait_closed()
 
     async def _open_conn(self):
         """ Opens connection to peer, returning StreamReader and StreamWritter instances """
@@ -80,9 +93,9 @@ class PeerConnection:
                 timeout=5.0
             ) 
         except asyncio.TimeoutError:
-            raise PeerConnectionOpenError('Timed out connecting to {self._ctx.ip}:{self._ctx.port}')
+            raise PeerConnectionOpenError(f'Timed out connecting to {self._ctx.ip}:{self._ctx.port}')
         except ConnectionRefusedError:
-            raise PeerConnectionOpenError('Connection refused from {self._ctx.ip}:{self._ctx.port}')
+            raise PeerConnectionOpenError(f'Connection refused from {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
             raise PeerConnectionOpenError(repr(e))
         
@@ -90,21 +103,21 @@ class PeerConnection:
     
 
     async def _send(self, msg):
-        self.writer.write(msg)
-        await self.writer.drain()
+        self._writer.write(msg)
+        await self._writer.drain()
     
         
     async def _recv(self, size):
         # TO DO, i believe this should timeout if we are not receiving messages
         #  for some time since keep-alive messages should be expected 
-        read_task = self.reader.read(size)
+        read_task = self._reader.read(size)
 
         try:
             data = await asyncio.wait_for(read_task, timeout=5.0)
         except TimeoutError:
-            raise PeerConnectionReadError('Timed out peer {self._ctx.ip}:{self._ctx.port}')
+            raise PeerConnectionReadError(f'Timed out peer {self._ctx.ip}:{self._ctx.port}')
         except ConnectionResetError:
-            raise PeerConnectionReadError('Connection closed from peer {self._ctx.ip}:{self._ctx.port}')
+            raise PeerConnectionReadError(f'Connection closed from peer {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
             raise PeerConnectionReadError(repr(e))
         
@@ -116,7 +129,7 @@ class PeerMessageStream:
         self._ctx = ctx
 
 
-    async def __aiter__(self):
+    def __aiter__(self):
         return self 
 
 
@@ -141,7 +154,7 @@ class PeerMessageStream:
         while msg_length > 0:
             buff = await self._ctx._recv(msg_length)
             message += buff
-            msg_length -= len(data)
+            msg_length -= len(buff)
         
         op_code: int = message[0]
         payload: bytes = message[1:]

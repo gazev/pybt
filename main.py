@@ -20,6 +20,8 @@ from torrent_manager import  (
     TorrentStatus
 )
 
+from peer import Peer, PeerConnectionError
+
 from piece_algorithms import PieceSelectionAlgorithm
 
 # this must all be moved to different files (instanciation will use factories)
@@ -48,7 +50,13 @@ async def run(peers_nr: int, port: int):
     tracker_task = asyncio.create_task(tracker_coro(tracker=tracker))
 
     workers = [
-        asyncio.create_task(worker_coro(torrent=torrent, file_manager=file_manager))
+        asyncio.create_task(
+            worker_coro(
+                torrent=torrent, 
+                file_manager=file_manager, 
+                client=client
+            )
+        )
         for _ in range(peers_nr)
     ]
 
@@ -96,13 +104,21 @@ async def tracker_coro(tracker: Tracker):
         await tracker.close()
 
 
-async def worker_coro(torrent: TorrentFile, file_manager: FileManager):
+async def worker_coro(torrent: TorrentFile, file_manager: FileManager, client: Client):
     try:
         while True:
-            peer: PeerResponse = await peers_queue.get()
-            print(f"{peer.ip}:{peer.port}", flush=True)
+            peer_response: PeerResponse = await peers_queue.get()
+
+            peer = Peer(peer_response, torrent=torrent, client=client)
+            try:
+                await peer.run()
+            except PeerConnectionError as e:
+                print(str(e))
+                break
 
     except asyncio.CancelledError:
+        print("HERE")
+        await peer.end()
         return
 
 
