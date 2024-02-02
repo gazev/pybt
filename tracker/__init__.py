@@ -1,2 +1,2 @@
-from .tracker import Tracker, PeerResponse
+from .tracker import Tracker, PeerTuple 
 from .tracker_exception import TrackerException

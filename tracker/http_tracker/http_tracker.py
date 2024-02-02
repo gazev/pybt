@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 
 import bencode
 import aiohttp
@@ -12,7 +12,7 @@ from client import Client
 
 from tracker import (
     Tracker, 
-    PeerResponse
+    PeerTuple
 )
 
 from file_manager import (
@@ -22,9 +22,10 @@ from file_manager import (
 
 from torrent import TorrentFile
 
-from .http_tracker_exceptions import HTTPTrackerException
+from .http_tracker_response import InvalidResponseException
 
 from .http_tracker_exceptions import (
+    HTTPTrackerException,
     DeadTrackerException, 
     RequestRejectedException,
     BadResponseException,
@@ -33,11 +34,9 @@ from .http_tracker_exceptions import (
 
 from .http_tracker_response import HTTPTrackerResponse
 
-from .utils import peer_response_list_from_raw_str
+from .utils import peer_lst_f_raw_str
 
 class HTTPTracker(Tracker):
-    _state = None
-
     def __init__(self, client: Client, torrent: TorrentFile, torrent_status: TorrentStatus):
         self._client         = client
         self._torrent        = torrent
@@ -46,22 +45,24 @@ class HTTPTracker(Tracker):
         self._event_state    = 'started'
     
 
-    async def get_peers(self) -> List[PeerResponse]:
-        # NOTE Ideally we would keep a tracker state that would act accordingly to the
-        # Tracker feedback (failure/warning messages and trackers not working), 
-        # but since it's not clear what messages are mostly used we just make the 
-
+    async def get_peers(self) -> Tuple[List[PeerTuple], int]:
         try:
-            response: HTTPTrackerResponse = await self._request_tracker()
+            raw_response = await self._request_tracker()
         except HTTPTrackerException:
             # TODO implement multi announce logic
-            raise # since it's not done yet we just do this lol
+            raise
 
-        # see note on top of func definition
-        if response.failure_reason:
-            return []
+        print(raw_response)
+        try:
+            tracker_response = HTTPTrackerResponse(**bencode.loads(raw_response))
+        except (bencode.BencodeDecodingError, InvalidResponseException) as e:
+            raise HTTPTrackerException
 
-        return peer_response_list_from_raw_str(response.peers), response.interval
+        if tracker_response['failure reason']:
+            self._handle_failure(tracker_response['failure reason'])
+            return None, 10 
+
+        return peer_lst_f_raw_str(tracker_response['peers']), tracker_response['interval']
 
 
     async def close(self) -> None:
@@ -71,34 +72,19 @@ class HTTPTracker(Tracker):
             # at this point we don't care if we fail
             print(repr(e), flush=True)
         
-        await self._close_session()
+        await self._http_session.close()
         
         return
 
 
-    async def _close_session(self) -> None:
-        await self._http_session.close()
-
-
-    async def _request_tracker(self) -> HTTPTrackerResponse:
-        # yes all this try-catch, can't be worse than if err != nil right?
-
+    async def _request_tracker(self) -> str:
+        """ Make a GET request to the Tracker and return the raw content """
         try:
             async with self._http_session.get(self._build_request(self._event_state)) as resp:
                 if resp.status != 200:
-                    return RequestRejectedException(f"Tracker didn't accept our request, status: {resp.status}") 
-
-                try:
-                    bencode_resp = bencode.loads(await resp.read())
-                except bencode.BencodeDecodingError:
-                    raise BadResponseException(f"Tracker didn't respond in Bencode format")
-
-                try:
-                    tracker_response = HTTPTrackerResponse(**bencode_resp)
-                except http_tracker_response.InvalidResponseException as e:
-                    raise BadResponseException(str(e))
-
-                return tracker_response 
+                    raise RequestRejectedException(f"Tracker didn't accept our request, status: {resp.status}") 
+                
+                return await resp.read()
 
         except aiohttp.ClientConnectionError as e:
             raise DeadTrackerException(e.host)
@@ -107,7 +93,7 @@ class HTTPTracker(Tracker):
 
 
     def _build_request(self, event: str) -> str:
-        """ Returns the URL with all query params set for given torrent """
+        """ Build GET request to Tracker with specified event """
         params = {
             'info_hash':  self._torrent.info_hash,
             'peer_id':    self._client.id,
@@ -122,3 +108,5 @@ class HTTPTracker(Tracker):
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)
 
+    def _handle_failure(self, failure_reason: str):
+        raise NotImplementedError

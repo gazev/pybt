@@ -1,15 +1,15 @@
 from typing import List
-from tracker import PeerResponse
+from tracker import PeerTuple
 
 from ipaddress import ip_address
 from struct import unpack
 
-def peer_response_list_from_raw_str(raw_str: bytes) -> List[PeerResponse]:
+def peer_lst_f_raw_str(raw_str: bytes) -> List[PeerTuple]:
     # DO NOT use list comprehension for this, it is unreadable
     peers = []
     for i in range(0, len(raw_str), 6):
         peers.append(
-            PeerResponse(
+            PeerTuple(
                 ip = _decode_ip(raw_str[i:i+4]), 
                 port = _decode_port(raw_str[i+4:i+6])
             )
