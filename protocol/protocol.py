@@ -39,6 +39,7 @@ class FormatStrings(StrEnum):
     UNCHOKE = '>I'
     INTERESTED = '>IB'
     NOT_INTERESTED = '>IB'
+    HAVE = '>IBI'
     REQUEST = '>IBIII'
     CANCEL = '>IBII'
 
@@ -50,33 +51,43 @@ class Handshake:
         return struct.pack(FormatStrings.HANDSHAKE, 19, b'BitTorrent protocol', info_hash, client_id.encode())
     
     @staticmethod
-    def decode(data) -> Tuple[str, str]:
-        return data[28:48], data[48:68]
+    def decode(payload) -> Tuple[str, str]:
+        return payload[28:48], payload[48:68]
 
 
 class Choke:
     def __new__(self) -> bytes:
-        return struct.pack(FormatStrings.CHOKE, 1, CHOKE)
+        return struct.pack(FormatStrings.CHOKE, 1, MessageOP.CHOKE)
     
 
 class Unchoke:
     def __new__(self) -> bytes:
-        return struct.pack(FormatStrings.UNCHOKE, 1, UNCHOKE)
+        return struct.pack(FormatStrings.UNCHOKE, 1, MessageOP.UNCHOKE)
 
 
 class Interested:
     def __new__(self) -> bytes:
-        return struct.pack(FormatStrings.INTERESTED, 1, INTERESTED)
+        return struct.pack(FormatStrings.INTERESTED, 1, MessageOP.INTERESTED)
 
 
 class NotInterested:
     def __new__(self) -> bytes:
-        return struct.pack(FormatStrings.NOT_INTERESTED, 1, NOT_INTERESTED)
+        return struct.pack(FormatStrings.NOT_INTERESTED, 1, MessageOP.NOT_INTERESTED)
+
+
+class Have:
+    def __new__(self, n: int) -> bytes:
+        return struct.pack(FormatStrings.HAVE, 5, MessageOP.HAVE, n)
+    
+    @staticmethod
+    def decode(payload) -> int:
+        return struct.unpack(">I", payload)[0]
 
 
 class Request:
     def __new__(self, index: int, offset: int) -> bytes:
         return struct.pack(FormatStrings.REQUEST, 13, REQUEST, index, offset * BLOCK_SIZE, BLOCK_SIZE)
+
 
 class Cancel:
     def __new__(self, index: int, offset: int) -> bytes:
