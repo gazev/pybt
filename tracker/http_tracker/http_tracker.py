@@ -103,7 +103,7 @@ class HTTPTracker(Tracker):
             'compact':    1,
             'event':      event,
             # 'numwant':    self._client.max_peers * 2
-            'numwant':    50
+            'numwant':    100 
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)

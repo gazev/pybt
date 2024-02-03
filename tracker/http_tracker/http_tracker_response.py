@@ -15,7 +15,10 @@ class HTTPTrackerResponse:
         if self.__resp_keys - set(kwargs.keys()):
             if self.__failure_keys - set(kwargs.keys()):
                 raise InvalidResponseException('Invalid keys in Tracker response')
-            
+
+            if not isinstance(kwargs['failure reason'], str):
+                raise InvalidResponseException('Unexpected failure reason')
+
             return
             
         if not isinstance(kwargs['peers'], bytes):

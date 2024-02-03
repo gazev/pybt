@@ -54,6 +54,7 @@ class Peer:
         
         return p
     
+
     async def initialize(self):
         """ Open TCP connection to Peer and perform Handshake 
         
@@ -78,8 +79,12 @@ class Peer:
             async for op_code, message in PeerMessageStreamIter(self._conn):
                 print(f"Message from peer {self.ip}:{self.port}")
                 # print(op_code)
+            
+            print("PEER CLOSED COMMUNICATION")
         
         except PeerConnectionError as e:
+            print(repr(e))
+            print("PEER CLOSED COMMUNICATION")
             raise
     
 
@@ -104,7 +109,10 @@ class PeerConnection:
     async def close(self):
         if self._writer:
             self._writer.close()
-            await self._writer.wait_closed()
+            try:
+                await self._writer.wait_closed()
+            except:
+                pass
 
 
     async def _open_conn(self):
@@ -130,9 +138,10 @@ class PeerConnection:
         await self._send(Handshake(self._ctx.client.id, self._ctx.torrent.info_hash))
 
         response = await self._recv(struct.calcsize(FormatStrings.HANDSHAKE))
-        if response[28:48] != self._ctx.torrent.info_hash:
-            raise PeerConnectionHandshakeError(f'Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
 
+        info_hash, client_id = Handshake.decode(response)
+        if info_hash != self._ctx.torrent.info_hash:
+            raise PeerConnectionHandshakeError(f'Bad handshake from peer {self._ctx.ip}:{self._ctx.port}') 
     
 
     async def _send(self, msg: str):

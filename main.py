@@ -62,9 +62,9 @@ class Main:
         ]
 
         # coroutine listens for incoming peer connections
-        # server_task = asyncio.create_task(
-        #     asyncio.start_server(self.server_cb, port=self.client.port)
-        # )
+        server_task = asyncio.create_task(
+            asyncio.start_server(self.server_cb, port=self.client.port)
+        )
 
 
         workers = [
@@ -77,13 +77,16 @@ class Main:
         ]
 
         try:
-            await conn_man_task
+            while True:
+                print(len(self.active_peers))
+                print(len(self.bad_peers))
+                await asyncio.sleep(5)
         except KeyboardInterrupt:
             print("\nSIGINT received, terminating")
 
         tracker_task.cancel()
-
         conn_man_task.cancel()
+        server_task.cancel()
 
         for worker in workers:
             worker.cancel()
@@ -100,14 +103,22 @@ class Main:
         await tracker_task
         await conn_man_task
 
+        await server_task
+
+        print("it's ove")
+
         
 
     async def tracker_coro(self, tracker: Tracker):
         try:
             while True:
-                while len(self.active_peers) == self.max_peers:
-                    await self.need_peers.acquire()
-                    await self.need_peers.wait()
+                # TODO
+                # We use >= because incoming connections are not accounted
+                # since this was only tested behind a NAT
+                while len(self.active_peers) >= self.max_peers:
+                    print("UNLOCKED ON COND")
+                    await self.wait(cond=self.need_peers)
+                    print("UNLOCKED ON COND")
 
                 try:
                     peers, interval = await tracker.get_peers()
@@ -121,7 +132,9 @@ class Main:
                 await asyncio.sleep(5)
     
         except asyncio.CancelledError:
+            print("tracker exit point")
             await tracker.close()
+            print("finished tracker")
     
 
     async def conn_manager_coro(self):
@@ -142,6 +155,7 @@ class Main:
                     await self.peers_awaiting_connection.put(peer)
 
         except asyncio.CancelledError:
+            print("finished conn man")
             pass
 
 
@@ -160,6 +174,7 @@ class Main:
                 await self.work_queue.put(new_peer)
         
         except asyncio.CancelledError:
+            print("finished conn worker")
             pass
 
             
@@ -180,7 +195,7 @@ class Main:
         try:
             await new_peer.handshake()
         except PeerConnectionError:
-            self.bad_peers.add(PeerTuple(peer.ip, peer.port))
+            self.bad_peers.add(PeerTuple(new_peer.ip, new_peer.port))
             await new_peer.end()
             return
         
@@ -199,18 +214,40 @@ class Main:
                     await peer.run()
                 except PeerConnectionError as e:
                     print(repr(e))
+                    self.active_peers.remove(PeerTuple(peer.ip, peer.port))
+                    if (len(self.active_peers) < self.max_peers):
+                        await self.notify(self.need_peers)
                 except asyncio.CancelledError:
                     return
                 finally:
                     await peer.end()
-                    self.active_peers.remove(PeerTuple(peer.ip, peer.port))
-                    if (len(self.active_peers) < self.max_peers):
-                        await self.need_peers.acquire()
-                        self.need_peers.notify()
-                    return
+
 
         except asyncio.CancelledError:
             print("finished worker")
+
+
+    async def wait(self, cond: asyncio.Condition):
+        """ Wait on a condition atomically """
+        try:
+            await cond.acquire()
+            await cond.wait()
+        except asyncio.CancelledError:
+            if cond.locked():
+                cond.release() 
+            raise
+    
+    async def notify(self, cond: asyncio.Condition):
+        """ Atomically notify of a condition """
+        try:
+            await cond.acquire()
+            cond.notify()
+            cond.release()
+        except asyncio.CancelledError:
+            if cond.locked():
+                cond.release()
+            raise
+
 
 
 if __name__ == '__main__':

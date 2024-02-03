@@ -1,5 +1,7 @@
 import struct
 
+from typing import Tuple
+
 from enum import IntEnum 
 from enum import StrEnum
 
@@ -46,12 +48,16 @@ class FormatStrings(StrEnum):
 class Handshake:
     def __new__(self, client_id: str, info_hash: bytes) -> bytes:
         return struct.pack(FormatStrings.HANDSHAKE, 19, b'BitTorrent protocol', info_hash, client_id.encode())
+    
+    @staticmethod
+    def decode(data) -> Tuple[str, str]:
+        return data[28:48], data[48:68]
 
 
 class Choke:
     def __new__(self) -> bytes:
         return struct.pack(FormatStrings.CHOKE, 1, CHOKE)
-
+    
 
 class Unchoke:
     def __new__(self) -> bytes:
