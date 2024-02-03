@@ -52,7 +52,6 @@ class HTTPTracker(Tracker):
             # TODO implement multi announce logic
             raise
 
-        print(raw_response)
         try:
             tracker_response = HTTPTrackerResponse(**bencode.loads(raw_response))
         except (bencode.BencodeDecodingError, InvalidResponseException) as e:
@@ -103,7 +102,8 @@ class HTTPTracker(Tracker):
             'left':       self._torrent_status.get_total_pieces_nr() - self._torrent_status.get_downloaded(),
             'compact':    1,
             'event':      event,
-            'numwant':    self._client.max_peers
+            # 'numwant':    self._client.max_peers * 2
+            'numwant':    50
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)

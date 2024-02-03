@@ -72,19 +72,19 @@ class Peer:
 
     async def run(self):
         """ Peer event loop """
+        print(f"Running peer {self.ip}:{self.port}")
         try:
             # iterator returns message op code and payload
             async for op_code, message in PeerMessageStreamIter(self._conn):
                 print(f"Message from peer {self.ip}:{self.port}")
-                print(op_code)
+                # print(op_code)
         
         except PeerConnectionError as e:
-            print(str(e))
             raise
     
 
     async def end(self):
-        await self.conn.close()
+        await self._conn.close()
 
 
 class PeerConnection:
