@@ -1,13 +1,15 @@
-from typing import Tuple
+from __future__ import annotations
 
 import asyncio
 import struct
 
 from torrent import TorrentFile
 from client import Client
-from tracker import PeerTuple 
+from tracker import PeerAddr 
+from torrent_manager import TorrentManager
 
 from protocol import MessageOP, FormatStrings
+from .peer_state import PeerState, ChokedNotInterested 
 
 from protocol import (
     Handshake,
@@ -28,23 +30,44 @@ from .peer_exceptions import (
 
 
 class Peer:
-    def __init__(self, peer: PeerTuple, torrent: TorrentFile, client: Client):
-        self.ip    = peer.ip
-        self.port  = peer.port 
-        self.state = 'choked'
+    def __init__(
+        self, 
+        address: PeerAddr, 
+        torrent: TorrentFile, 
+        client: Client, 
+        torrent_manager: TorrentManager
+    ):
+        self.addr = address 
+        self.bitfield = bitarray()
+
+        self.am_choking = 1
+        self.is_interested = 0
 
         self.torrent = torrent
         self.client  = client
+        self._torrent_manager = torrent_manager 
 
+        self._state = ChokedNotInterested(self)
         self._conn = PeerConnection(self)
     
+
+    @property
+    def ip(self):
+        return self.addr.ip
+
+
+    @property
+    def port(self):
+        return self.addr.port
+
    
     @classmethod
     def from_incoming_conn(
         cls, 
-        peer: PeerTuple, 
+        peer: PeerAddr,
         torrent: TorrentFile, 
         client: Client, 
+        torrent_manager: TorrentManager,
         reader: asyncio.StreamReader, 
         writer: asyncio.StreamWriter
     ):
@@ -71,16 +94,22 @@ class Peer:
         await self._conn._handshake()
 
 
+    def change_state(self, new_state: PeerState):
+        self._state = new_state 
+
+
     async def run(self):
         """ Peer event loop """
         print(f"Running peer {self.ip}:{self.port}")
         try:
             # iterator returns message op code and payload
-            async for op_code, message in PeerMessageStreamIter(self._conn):
+            async for op_code, payload in PeerMessageStreamIter(self._conn):
                 print(f"Message from peer {self.ip}:{self.port}")
                 # print(op_code)
+                # print(payload)
+                self._state.handle_message(op_code, payload)
+                # print(op_code)
             
-            print("PEER CLOSED COMMUNICATION")
         
         except PeerConnectionError as e:
             print(repr(e))
@@ -90,6 +119,17 @@ class Peer:
 
     async def end(self):
         await self._conn.close()
+
+
+    def __hash__(self):
+        return self.addr.__hash__()
+    
+
+    def __eq__(self, obj):
+        if not isinstance(obj, Peer) and not isinstance(obj, PeerAddr):
+            return False
+        
+        return obj == self.addr
 
 
 class PeerConnection:

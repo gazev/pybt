@@ -12,7 +12,7 @@ from client import Client
 
 from tracker import (
     Tracker, 
-    PeerTuple
+    PeerAddr
 )
 
 from file_manager import (
@@ -45,7 +45,7 @@ class HTTPTracker(Tracker):
         self._event_state    = 'started'
     
 
-    async def get_peers(self) -> Tuple[List[PeerTuple], int]:
+    async def get_peers(self) -> Tuple[List[PeerAddr], int]:
         try:
             raw_response = await self._request_tracker()
         except HTTPTrackerException:

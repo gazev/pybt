@@ -1,6 +1,8 @@
 from typing import Protocol
 from protocol import MessageOP 
 
+import bitarray
+
 from protocol import (
     Handshake,
     Choke,
@@ -27,16 +29,22 @@ class PeerState:
             case MessageOP.KEEP_ALIVE:
                 pass
             case MessageOP.CHOKE:
+                print("choked msg")
                 self.change_state('choked')
             case MessageOP.UNCHOKE:
+                print("unchoked msg")
                 self.change_state('unchoked')
             case MessageOP.INTERESTED:
+                print("interested msg")
                 self.change_state('interested')
             case MessageOP.NOT_INTERESTED:
+                print("not interested msg")
                 self.change_state('not interested')
             case MessageOP.HAVE:
+                print("have message")
                 self.handle_have(payload)
             case MessageOP.BITFIELD:
+                print("bitfield message")
                 self.handle_bitfield(payload)
             case MessageOP.PIECE:
                 self.handle_piece(payload)
@@ -51,6 +59,9 @@ class PeerState:
     
 
     def handle_bitfield(self, payload):
+        print(payload)
+        a = bitarray.bitarray().frombytes(payload)
+        print(a)
         self._ctx.piece_manager.register_peer(self._ctx, payload)
 
 

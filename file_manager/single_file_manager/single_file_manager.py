@@ -17,9 +17,9 @@ class SingleFileManager(FileManager, TorrentStatus):
     Implementing multi file support will build on top of this. This class is a 
     temporary placeholder before full implementation
     """
-    def __init__(self, torrent: TorrentFile):
-        self._file: str       = torrent['info']['name']
-        self._piece_size: int = torrent['info']['piece length']
+    def __init__(self, meta_info: InfoDict):
+        self._file: str       = meta_info['name']
+        self._piece_size: int = meta_info['piece length']
 
         self._buffer = FileWriteBuffer(BUFFER_SIZE, self._piece_size) 
 
