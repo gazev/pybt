@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import struct
+import bitarray
+import math
 
 from torrent import TorrentFile
 from client import Client
@@ -38,29 +40,21 @@ class Peer:
         torrent_manager: TorrentManager
     ):
         self.addr = address 
-        self.bitfield = bitarray()
+        self.bitfield = bitarray.bitarray(
+            math.ceil(torrent['info']['length'] / torrent['info']['piece length'])
+        )
 
         self.am_choking = 1
         self.is_interested = 0
 
-        self.torrent = torrent
+        self.torrent = torrent 
         self.client  = client
-        self._torrent_manager = torrent_manager 
+        self.torrent_manager = torrent_manager 
 
         self._state = ChokedNotInterested(self)
         self._conn = PeerConnection(self)
     
 
-    @property
-    def ip(self):
-        return self.addr.ip
-
-
-    @property
-    def port(self):
-        return self.addr.port
-
-   
     @classmethod
     def from_incoming_conn(
         cls, 
@@ -71,12 +65,20 @@ class Peer:
         reader: asyncio.StreamReader, 
         writer: asyncio.StreamWriter
     ):
-        p = cls(peer, torrent, client) 
+        p = cls(peer, torrent, client, torrent_manager) 
         p._conn._reader = reader
         p._conn._writer = writer
         
         return p
-    
+
+    @property
+    def ip(self):
+        return self.addr.ip
+
+    @property
+    def port(self):
+        return self.addr.port
+
 
     async def initialize(self):
         """ Open TCP connection to Peer and perform Handshake 
@@ -98,23 +100,27 @@ class Peer:
         self._state = new_state 
 
 
+    async def send_message(self, msg: bytes):
+        await self._conn._send(msg)
+
+
     async def run(self):
         """ Peer event loop """
         print(f"Running peer {self.ip}:{self.port}")
         try:
             # iterator returns message op code and payload
             async for op_code, payload in PeerMessageStreamIter(self._conn):
-                print(f"Message from peer {self.ip}:{self.port}")
-                # print(op_code)
-                # print(payload)
+                print(f"Message {op_code} from peer {self.ip}:{self.port}")
                 self._state.handle_message(op_code, payload)
-                # print(op_code)
+                await self._state.do_work()
             
         
         except PeerConnectionError as e:
             print(repr(e))
-            print("PEER CLOSED COMMUNICATION")
             raise
+            
+        except Exception as e:
+            print(repr(e))
     
 
     async def end(self):

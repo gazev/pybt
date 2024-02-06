@@ -238,5 +238,5 @@ class Main:
 
 
 if __name__ == '__main__':
-    obj = Main(30, 6881)
-    asyncio.run(obj.run(), debug=False)
+    obj = Main(1, 6881)
+    asyncio.run(obj.run(), debug=True)

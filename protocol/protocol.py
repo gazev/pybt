@@ -80,13 +80,23 @@ class Have:
         return struct.pack(FormatStrings.HAVE, 5, MessageOP.HAVE, n)
     
     @staticmethod
-    def decode(payload) -> int:
+    def decode(payload: bytes) -> int:
         return struct.unpack(">I", payload)[0]
 
 
 class Request:
-    def __new__(self, index: int, offset: int) -> bytes:
-        return struct.pack(FormatStrings.REQUEST, 13, REQUEST, index, offset * BLOCK_SIZE, BLOCK_SIZE)
+    def __new__(self, index: int, offset: int, block_size: int) -> bytes:
+        return struct.pack(FormatStrings.REQUEST, 13, MessageOP.REQUEST, index, offset * block_size, block_size)
+
+
+class PieceMessage:
+    @staticmethod
+    def decode(payload: bytes) -> Tuple[int, int, bytes]:
+        piece_nr = struct.unpack(">I", payload[0:4])[0]
+        block_nr = struct.unpack(">I", payload[4:8])[0] 
+
+        return piece_nr, block_nr, payload[8:]
+
 
 
 class Cancel:

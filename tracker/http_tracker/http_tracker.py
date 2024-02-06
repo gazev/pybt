@@ -37,11 +37,11 @@ from .http_tracker_response import HTTPTrackerResponse
 from .utils import peer_lst_f_raw_str
 
 class HTTPTracker(Tracker):
-    def __init__(self, client: Client, torrent: TorrentFile, torrent_status: TorrentStatus):
+    def __init__(self, client: Client, torrent: TorrentFile):
         self._client         = client
         self._torrent        = torrent
         self._http_session   = aiohttp.ClientSession()
-        self._torrent_status = torrent_status 
+        # self._torrent_status = torrent_status 
         self._event_state    = 'started'
     
 
@@ -97,9 +97,9 @@ class HTTPTracker(Tracker):
             'info_hash':  self._torrent.info_hash,
             'peer_id':    self._client.id,
             'port':       self._client.port,
-            'downloaded': self._torrent_status.get_downloaded(),
-            'uploaded':   self._torrent_status.get_uploaded(),
-            'left':       self._torrent_status.get_total_pieces_nr() - self._torrent_status.get_downloaded(),
+            # 'downloaded': self._torrent_status.get_downloaded(),
+            # 'uploaded':   self._torrent_status.get_uploaded(),
+            # 'left':       self._torrent_status.get_total_pieces_nr() - self._torrent_status.get_downloaded(),
             'compact':    1,
             'event':      event,
             # 'numwant':    self._client.max_peers * 2

@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import Dict, Any
 
 
+import math
 import bencode
+
 from hashlib import sha1
+from functools import cached_property
 
 class BadTorrent(KeyError):
     """ If we don't have enough information to continue with our version of the
@@ -36,9 +39,14 @@ class InfoDict:
         self._inner_dict = kwargs
     
 
-    def to_dict(self) -> Dict:
-        return self._inner_dict
+    @cached_property
+    def total_pieces(self) -> int:
+        return math.ceil(self['length'] / self['piece length'])
     
+
+    def get_hash(self, n: int) -> bytes:
+        return self['pieces'][20 * n: 20 * n + 20]
+
 
     def __getitem__(self, key):
         if key in self._inner_dict:
@@ -52,6 +60,12 @@ class TorrentFile:
         'announce', 'info'
     }
 
+    @staticmethod
+    def from_file(path: str) -> TorrentFile:
+        with open(path, 'rb') as fp:
+            return TorrentFile(**bencode.load(fp))
+
+
     def __init__(self, **kwargs):
         if self.__required_keys - set(kwargs.keys()):
             raise BadTorrent(f'Missing keys: {self.__required_keys - set(kwargs.keys())}')
@@ -62,22 +76,20 @@ class TorrentFile:
         if not isinstance(kwargs['info'], dict):
             raise BadTorrent('Info is not a dictionary')
         
-        
-        self.__dict__['info_hash'] =  sha1(bencode.dumps(kwargs['info'])).digest()
 
+        self._info_hash = sha1(bencode.dumps(kwargs['info'])).digest()
         self._inner_dict = kwargs
         self._inner_dict['info'] = InfoDict(**kwargs['info'])
-   
+
+
+    @property
+    def info_hash(self):
+        return self._info_hash
+
 
     def __getitem__(self, key: str) -> Any:
         if key in self._inner_dict:
             return self._inner_dict[key]
         
         return None
-
-
-    @staticmethod
-    def from_file(path: str) -> TorrentFile:
-        with open(path, 'rb') as fp:
-            return TorrentFile(**bencode.load(fp))
-
+    

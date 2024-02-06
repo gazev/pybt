@@ -3,7 +3,7 @@ from config import CACHE_SIZE, BUFFER_SIZE
 
 from math import ceil
 
-from torrent import TorrentFile
+from torrent import InfoDict 
 from piece_algorithms import PieceSelectionAlgorithm
 
 from file_manager import FileManager, TorrentStatus

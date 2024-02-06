@@ -1,1 +1,1 @@
-from .torrent import TorrentFile
+from .torrent import TorrentFile, InfoDict
