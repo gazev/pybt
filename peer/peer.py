@@ -5,6 +5,10 @@ import struct
 import bitarray
 import math
 
+import traceback
+
+from pprint import pprint as print
+
 from torrent import TorrentFile
 from client import Client
 from tracker import PeerAddr 
@@ -53,7 +57,7 @@ class Peer:
 
         self._state = ChokedNotInterested(self)
         self._conn = PeerConnection(self)
-    
+
 
     @classmethod
     def from_incoming_conn(
@@ -110,8 +114,8 @@ class Peer:
         try:
             # iterator returns message op code and payload
             async for op_code, payload in PeerMessageStreamIter(self._conn):
-                print(f"Message {op_code} from peer {self.ip}:{self.port}")
-                self._state.handle_message(op_code, payload)
+                # print(f"Message {op_code} from peer {self.ip}:{self.port}")
+                await self._state.handle_message(op_code, payload)
                 await self._state.do_work()
             
         
@@ -120,10 +124,17 @@ class Peer:
             raise
             
         except Exception as e:
+            print("WHAT HAPPENED HERE")
+            print(traceback.format_exc())
             print(repr(e))
     
 
     async def end(self):
+        try:
+            if self._state._scheduled_piece is not None:
+                self.torrent_manager.put_pieces(self._state._scheduled_piece)
+        except AttributeError:
+            pass
         await self._conn.close()
 
 

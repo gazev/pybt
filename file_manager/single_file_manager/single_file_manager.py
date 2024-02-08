@@ -20,8 +20,9 @@ class SingleFileManager(FileManager, TorrentStatus):
     def __init__(self, meta_info: InfoDict):
         self._file: str       = meta_info['name']
         self._piece_size: int = meta_info['piece length']
+        self._fp = open(self._file, 'wb')
 
-        self._buffer = FileWriteBuffer(BUFFER_SIZE, self._piece_size) 
+        self._buffer = FileWriteBuffer(BUFFER_SIZE, self._piece_size, self._fp) 
 
 
     @lru_cache(cache_size=CACHE_SIZE)
@@ -30,21 +31,22 @@ class SingleFileManager(FileManager, TorrentStatus):
         if self._buffer.has_piece(index):
             return self._buffer.get_piece(index)
 
-        with open(self._file, 'rb') as fp:
-            fp.seek(index * self._piece_size, 0)
-            return fp.read(self._piece_size)
+        self._fp.seek(index * self._piece_size, 0)
+        return self._fp.read(self._piece_size)
 
 
     def write_piece(self, index: int, piece: bytes) -> None:
         """ Write piece passed as arg to index passed as arg """
-        if self._buffer.is_full():
-            self._buffer.flush()
+        self._fp.seek(index * self._piece_size, 0)
+        self._fp.write(piece)
+        # if self._buffer.is_full():
+        #     self._buffer.flush()
         
-        self._buffer.add(index, piece)
+        # self._buffer.add(index, piece)
     
 
-    def end(self):
         """ Terminate, writting buffer to disk """
-        self._buffer.flush()
+        def end():
+            self._fp.flush()
 
         

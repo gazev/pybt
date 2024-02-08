@@ -1,6 +1,9 @@
 from typing import Protocol
 from protocol import MessageOP 
 
+from time import sleep
+from hashlib import sha1
+
 import bitarray
 
 from protocol import (
@@ -28,7 +31,7 @@ class PeerState:
         raise NotImplementedError
 
 
-    def handle_message(self, op_code: str, payload: bytes):
+    async def handle_message(self, op_code: str, payload: bytes):
         match op_code:
             case MessageOP.KEEP_ALIVE:
                 pass
@@ -45,7 +48,7 @@ class PeerState:
             case MessageOP.BITFIELD:
                 self.handle_bitfield(payload)
             case MessageOP.PIECE:
-                self.handle_piece(payload)
+                await self.handle_piece(payload)
             case MessageOP.CANCEL:
                 pass
             case default:
@@ -71,7 +74,7 @@ class PeerState:
         self._ctx.bitfield.frombytes(payload)
 
 
-    def handle_piece(self, payload: bytes):
+    async def handle_piece(self, payload: bytes):
         pass
         
 
@@ -88,7 +91,6 @@ class ChokedNotInterested(PeerState):
         if piece is not None:
             self._ctx.torrent_manager.put_pieces(piece)
             self.change_state('interested')
-            print("Going interested")
             await self._ctx.send_message(Interested())
         
 
@@ -128,11 +130,13 @@ class UnchokedInterested(PeerState):
         self._scheduled_piece = None
         self._piece_handler = None
 
+
     def change_state(self, state):
         if state == 'not interested':
             self._ctx.change_state(UnchokedNotInterested(self._ctx))
         elif state == 'choked':
             self._ctx.change_state(ChokedInterested(self._ctx))
+
 
     async def do_work(self):
         # if we are already waiting for pieces
@@ -141,6 +145,7 @@ class UnchokedInterested(PeerState):
 
         # get piece to request to peer
         self._scheduled_piece = self._ctx.torrent_manager.get_pieces(self._ctx.bitfield)
+        # print(f"Got piece {self._scheduled_piece}")
         if self._scheduled_piece is None:
             self.change_state('not interested')
             return
@@ -150,12 +155,17 @@ class UnchokedInterested(PeerState):
         await self._piece_handler.enqueue_requests()
     
 
-    def handle_piece(self, payload):
+    async def handle_piece(self, payload):
         # we are not waiting for pieces
         if self._scheduled_piece is None:
             return
         
-        self._piece_handler.receive_block(payload)
+        await self._piece_handler.receive_block(payload)
+    
+
+    def _reset(self):
+        self._scheduled_piece = None
+        self._piece_handler = None
         
 
 class PieceHandler:
@@ -165,7 +175,7 @@ class PieceHandler:
         self._ctx = ctx
 
         self._piece_nr = piece_nr
-        self._buff = b' ' * meta_info['piece length']
+        self._buff = bytearray(meta_info['piece length'])
         self._retr_offset = 0
         self._hash = meta_info.get_hash(piece_nr)
 
@@ -178,7 +188,7 @@ class PieceHandler:
     async def enqueue_requests(self):
         """ Enqueue block requests for a piece """
         offset = self._retr_offset 
-        for _ in range(5):
+        for _ in range(10):
             # if all blocks are requested
             if offset >= self._piece_len:
                 return
@@ -188,18 +198,34 @@ class PieceHandler:
             offset += self.BLOCK_SIZE
 
    
-    def receive_block(self, payload):
+    async def receive_block(self, payload):
         idx, offset, data = PieceMessage.decode(payload)
 
         if idx != self._piece_nr:
             return
         
         self._buff[offset: offset + self.BLOCK_SIZE] = data
+
         self._retr_blocks += 1
+        if self._retr_blocks == self._total_blocks:
+            self.save_piece()
+            return
+
+        self._retr_offset += self.BLOCK_SIZE
         self._enqueued -= 1
 
-        
+        if self._enqueued == 0:
+            await self.enqueue_requests()
+            
 
+    def save_piece(self):
+        self._ctx._state._reset()
+
+        if sha1(self._buff).digest() != self._hash:
+            self._ctx.torrent_manager.put_pieces(self._piece_nr)
+            return
+
+        self._ctx.torrent_manager.save_piece(self._piece_nr, self._buff)
 
 
 

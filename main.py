@@ -25,7 +25,8 @@ class Main:
     def __init__(self, max_peers: int, port: int):
         self.client = Client(max_peers=max_peers, port=port)
         self.torrent = TorrentFile.from_file(path=".stuff/debian.torrent")
-        self.torrent_manager = TorrentManager(self.torrent['info'])
+        self.file_manager = SingleFileManager(self.torrent['info'])
+        self.torrent_manager = TorrentManager(self.torrent['info'], self.file_manager)
         self.max_peers = max_peers 
 
         self.bad_peers = set() # peers that are irresponsive
@@ -71,13 +72,14 @@ class Main:
             for _ in range(self.max_peers)
         ]
 
+        # tracemalloc.start()
         try:
-            while True:
-                print(len(self.active_peers))
-                print(len(self.bad_peers))
-                await asyncio.sleep(5)
+            await self.torrent_manager.end.wait()
         except KeyboardInterrupt:
             print("\nSIGINT received, terminating")
+        self.torrent_manager.end()
+        # snapshot = tracemalloc.take_snapshot()
+        # display_top(snapshot)
 
         tracker_task.cancel()
         conn_man_task.cancel()
@@ -122,7 +124,7 @@ class Main:
                 if peers is not None:
                     await self.pending_peers.put(peers)
                     
-                await asyncio.sleep(5)
+                await asyncio.sleep(60)
     
         except asyncio.CancelledError:
             await tracker.close()
@@ -238,5 +240,5 @@ class Main:
 
 
 if __name__ == '__main__':
-    obj = Main(1, 6881)
-    asyncio.run(obj.run(), debug=True)
+    obj = Main(30, 6881)
+    asyncio.run(obj.run(), debug=False)

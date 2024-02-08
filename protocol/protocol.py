@@ -86,7 +86,7 @@ class Have:
 
 class Request:
     def __new__(self, index: int, offset: int, block_size: int) -> bytes:
-        return struct.pack(FormatStrings.REQUEST, 13, MessageOP.REQUEST, index, offset * block_size, block_size)
+        return struct.pack(FormatStrings.REQUEST, 13, MessageOP.REQUEST, index, offset, block_size)
 
 
 class PieceMessage:
