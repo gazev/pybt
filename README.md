@@ -1,4 +1,4 @@
-This is project which I decided to tackle after toying around with BitTorrent for awhile. It's a second iteration where I tried to make it a bit tidier and extensible using preferably only the Python standard lib. In the end I needed to use external libraries, to mention:
+This is a project which I decided to tackle after toying around with BitTorrent for awhile. It's a second iteration where I tried to make it a bit tidier and extensible using preferably only the Python standard lib. In the end I needed to use external libraries, to mention:
 - `aiohttp` to support concurrent HTTP requests
 - `bitarray` to support a fast and light bitarray implementation in C
 
