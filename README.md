@@ -15,4 +15,4 @@ For UDP Trackers the great deal is finding a concurrent library capable of doing
 
 I wrote a blog post for the project [here](https://gazev.com/bittorrent)
 
-[PyBT][https://www.youtube.com/watch?v=MUlLtGutd-4]
+[PyBT](https://www.youtube.com/watch?v=MUlLtGutd-4)
