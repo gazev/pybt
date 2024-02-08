@@ -3,11 +3,11 @@ This is project which I decided to tackle after toying around with BitTorrent fo
 - `bitarray`to support fast and light bitarray implementations in C
 
 Currently supported features:
-[x] - HTTP Trackers
-[x] - Single file torrents
-[ ] - Multi file torrents
-[ ] - UDP Trackers
-[ ] - Seeding
+- [x] - HTTP Trackers
+- [x] - Single file torrents
+- [ ] - Multi file torrents
+- [ ] - UDP Trackers
+- [ ] - Seeding
 
 I will hopefully work on UDP Trackers and seeding, as it isn't super complex to be added, multi file torrents might require a bit more work however.
 
