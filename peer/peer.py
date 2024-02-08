@@ -7,8 +7,6 @@ import math
 
 import traceback
 
-from pprint import pprint as print
-
 from torrent import TorrentFile
 from client import Client
 from tracker import PeerAddr 
@@ -110,23 +108,23 @@ class Peer:
 
     async def run(self):
         """ Peer event loop """
-        print(f"Running peer {self.ip}:{self.port}")
+        print(f'Connected to peer {self.ip}:{self.port}')
         try:
             # iterator returns message op code and payload
             async for op_code, payload in PeerMessageStreamIter(self._conn):
+                if self.torrent_manager.end.is_set():
+                    await asyncio.sleep(.1)
+                    return
                 # print(f"Message {op_code} from peer {self.ip}:{self.port}")
                 await self._state.handle_message(op_code, payload)
                 await self._state.do_work()
             
         
         except PeerConnectionError as e:
-            print(repr(e))
             raise
             
         except Exception as e:
-            print("WHAT HAPPENED HERE")
-            print(traceback.format_exc())
-            print(repr(e))
+            pass
     
 
     async def end(self):
@@ -186,7 +184,7 @@ class PeerConnection:
         except ConnectionRefusedError:
             raise PeerConnectionOpenError(f'Connection refused from {self._ctx.ip}:{self._ctx.port}')
         except Exception as e:
-            raise PeerConnectionOpenError(repr(e))
+            raise PeerConnectionOpenError(f'Failed connecting to peer {self._ctx.ip}:{ßelf._ctx.port}')
         
         return reader, writer 
     

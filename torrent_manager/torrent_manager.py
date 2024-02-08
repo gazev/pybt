@@ -29,7 +29,7 @@ class TorrentManager:
         self._total_pieces = math.ceil(meta_info['length'] / meta_info['piece length'])
         self._pieces_state = [PieceState.MISSING] * self._total_pieces 
         self._dl_pieces = 0
-        
+
         self._first_missing_idx = 0
         self.end = asyncio.Event()
 
@@ -69,7 +69,7 @@ class TorrentManager:
 
         self._dl_pieces += 1
         # update window
-        print(f"Got piece {piece_nr}")
+        print(f"({(self._dl_pieces * 100) / self._total_pieces :.2f}%) Got piece {piece_nr}")
         if not self._endgame and self._first_missing_idx == piece_nr:
             for idx in range(self._first_missing_idx, self._total_pieces):
                 if self._pieces_state[idx] == PieceState.MISSING:
@@ -77,6 +77,6 @@ class TorrentManager:
                     break
         
         if self._dl_pieces == self._total_pieces:
-            print("End")
+            print("Download finished")
             self.end.set()
 

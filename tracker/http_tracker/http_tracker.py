@@ -69,7 +69,7 @@ class HTTPTracker(Tracker):
             resp = await self._http_session.get(self._build_request('stopped'))
         except Exception as e:
             # at this point we don't care if we fail
-            print(repr(e), flush=True)
+            print(str(e), flush=True)
         
         await self._http_session.close()
         

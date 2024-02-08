@@ -22,9 +22,9 @@ class FileWriteBuffer:
     
     def flush(self) -> None:
         # this will save some seek time, also probably save some IO buffer flushes
-        # sorted_keys = sorted(self._buffer)
+        sorted_keys = sorted(self._buffer)
 
-        # for k in sorted_keys:
-        self._fp.seek(k * self._piece_size, 0)
-        self._fp.write(self._buffer[k])
+        for k in sorted_keys:
+            self._fp.seek(k * self._piece_size, 0)
+            self._fp.write(self._buffer[k])
         

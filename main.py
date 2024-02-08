@@ -1,5 +1,6 @@
 from typing import Set
 
+import argparse
 import asyncio
 
 from client import Client
@@ -22,13 +23,8 @@ from file_manager.single_file_manager import SingleFileManager
 
 
 class Main:
-    def __init__(self, max_peers: int, port: int):
-        self.client = Client(max_peers=max_peers, port=port)
-        self.torrent = TorrentFile.from_file(path=".stuff/debian.torrent")
-        self.file_manager = SingleFileManager(self.torrent['info'])
-        self.torrent_manager = TorrentManager(self.torrent['info'], self.file_manager)
+    def __init__(self, max_peers: int, port: int, path: str):
         self.max_peers = max_peers 
-
         self.bad_peers = set() # peers that are irresponsive
         self.active_peers = set() # peers currenly connected
 
@@ -39,10 +35,16 @@ class Main:
         self.need_peers_lock = asyncio.Lock()
         self.need_peers = asyncio.Condition(self.need_peers_lock)
 
+        self.client = Client(port=port)
+        self.torrent = TorrentFile.from_file(path=path)
+        self.file_manager = SingleFileManager(self.torrent['info'])
+        self.torrent_manager = TorrentManager(self.torrent['info'], self.file_manager)
+
 
     async def run(self):
         if not self.torrent["announce"].startswith(b"http"):
             print("Unsupported protocol version! Only HTTP Trackers allowed")
+            exit(0)
 
         # make tracker factory when UDP Trackers are supported
         tracker: Tracker = HTTPTracker(
@@ -75,9 +77,11 @@ class Main:
         # tracemalloc.start()
         try:
             await self.torrent_manager.end.wait()
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            # await self.notify(self.need_peers)
             print("\nSIGINT received, terminating")
-        self.torrent_manager.end()
+
+        # self.torrent_manager.end.set()
         # snapshot = tracemalloc.take_snapshot()
         # display_top(snapshot)
 
@@ -91,24 +95,15 @@ class Main:
         for worker in conn_workers:
             worker.cancel()
         
-        for t in workers:
-            await t
-
-        for t in conn_workers:
-            await t
-
         await tracker_task
-        await conn_man_task
 
-        await server_task
-
-        print("it's ove")
+        return
 
         
 
     async def tracker_coro(self, tracker: Tracker):
         try:
-            while True:
+            while not self.torrent_manager.end.is_set():
                 # TODO
                 # We use >= because incoming connections are not accounted
                 # since this was only tested behind a NAT
@@ -118,7 +113,7 @@ class Main:
                 try:
                     peers, interval = await tracker.get_peers()
                 except TrackerException as e:
-                    print(repr(e))
+                    print(str(e))
                     return
 
                 if peers is not None:
@@ -133,7 +128,7 @@ class Main:
     async def conn_manager_coro(self):
         """ Coroutine responsible for handshaking peers """
         try:
-            while True:
+            while not self.torrent_manager.end.is_set():
                 pending_peers = await self.pending_peers.get()
 
                 if len(self.active_peers) >= self.max_peers:
@@ -153,13 +148,13 @@ class Main:
 
     async def conn_worker(self):
         try:
-            while True:
+            while not self.torrent_manager.end.is_set():
                 peer_addr = await self.peers_awaiting_connection.get()
                 new_peer = Peer(peer_addr, self.torrent, self.client, self.torrent_manager)
                 try:
                     await new_peer.initialize()
                 except PeerConnectionError as e:
-                    print(repr(e))
+                    print(str(e))
                     self.bad_peers.add(peer_addr)
                     continue
                 
@@ -195,14 +190,14 @@ class Main:
 
     async def worker_coro(self):
         try:
-            while True:
+            while not self.torrent_manager.end.is_set():
                 peer: Peer = await self.work_queue.get()
                 self.active_peers.add(peer)
 
                 try:
                     await peer.run()
                 except PeerConnectionError as e:
-                    print(repr(e))
+                    print(str(e))
                     self.active_peers.remove(peer)
                     if (len(self.active_peers) < self.max_peers):
                         await self.notify(self.need_peers)
@@ -240,5 +235,29 @@ class Main:
 
 
 if __name__ == '__main__':
-    obj = Main(30, 6881)
+    parser = argparse.ArgumentParser(
+                        prog = 'pybt',
+                        description ='A tiny BitTorrent 1.0 client implementation in Python'
+    )
+
+    parser.add_argument('torrentfile', help='absolute or relative path to torrent file')
+    parser.add_argument('-p', '--port', type = int,
+                            default=6881,
+                            help='Port where the client will be accepting connections (default: %(default)s)'
+    )
+
+    parser.add_argument('--max-peer', type = int, 
+                            default=30, 
+                            help='Max number of peers (default: %(default)s)'
+    )
+
+    args = parser.parse_args()
+    if (args.max_peer < 0 or args.max_peer > 50):
+        print("Invalid arguments, max number of peers must be positive a less than 50")
+        exit(0)
+    if (args.port < 0 or args.port > 2**16):
+        print("Invalid port")
+        exit(0)
+
+    obj = Main(int(args.max_peer), args.port, args.torrentfile)
     asyncio.run(obj.run(), debug=False)

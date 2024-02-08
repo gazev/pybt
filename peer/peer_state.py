@@ -3,6 +3,7 @@ from protocol import MessageOP
 
 from time import sleep
 from hashlib import sha1
+import asyncio
 
 import bitarray
 
@@ -209,6 +210,7 @@ class PieceHandler:
         self._retr_blocks += 1
         if self._retr_blocks == self._total_blocks:
             self.save_piece()
+            await asyncio.sleep(.1)
             return
 
         self._retr_offset += self.BLOCK_SIZE
