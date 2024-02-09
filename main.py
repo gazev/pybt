@@ -56,7 +56,7 @@ class Main:
 
         # coroutines that open connections and enqueue good peers
         conn_workers = [
-            asyncio.create_task(self.conn_worker()) for _ in range(self.max_peers * 2)
+            asyncio.create_task(self.conn_worker()) for _ in range(self.max_peers)
         ]
 
         # coroutine listens for incoming peer connections
