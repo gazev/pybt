@@ -1,25 +1,18 @@
 from tracker import TrackerException
 
 class HTTPTrackerException(TrackerException):
-    pass
+    """ Exception raise from HTTPTracker """
 
 class DeadTrackerException(HTTPTrackerException):
-    """ Exception that will indicate a Tracker is not working, probably because
-    it's dead, down or simply isn't a Tracker 
-    """
-    pass
+    """ Error when a tracker is not working probably because it's dead """
 
 class RequestRejectedException(HTTPTrackerException):
-    """ Exception used when Tracker doesn't return a 200 response code """
+    """ Exception used when tracker doesn't return a 200 response code """
     pass
 
 class BadResponseException(HTTPTrackerException):
-    """ Exception used when the Tracker responds but we can't make any sense of the
-    response
-    """
+    """ Exception used when we don't understand a tracker's response """
 
 class GeneralException(HTTPTrackerException):
-    """ A general exceptino, mostly means the Tracker couldn't be resolved for
-    various reasons such as malformed URL. 
-    """
+    """ Any other exception in which we can't communicate with the tracker """
 

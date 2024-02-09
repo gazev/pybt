@@ -8,6 +8,7 @@ from typing import Callable, List, TYPE_CHECKING
 if TYPE_CHECKING:
     from piece_manager import PieceManager
 
+
 def lru_cache(cache_size: int):
     """ This is a LRU Cache decorator which we use to decorate calls to the read
     function.

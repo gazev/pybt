@@ -5,15 +5,11 @@ import struct
 import bitarray
 import math
 
-import traceback
-
 from torrent import TorrentFile
 from client import Client
 from tracker import PeerAddr 
 from torrent_manager import TorrentManager
-
 from protocol import MessageOP, FormatStrings
-from .peer_state import PeerState, ChokedNotInterested 
 
 from protocol import (
     Handshake,
@@ -25,6 +21,7 @@ from protocol import (
     Cancel
 )
 
+from .peer_state import PeerState, ChokedNotInterested 
 from .peer_exceptions import (
     PeerConnectionError,
     PeerConnectionOpenError,
@@ -83,18 +80,12 @@ class Peer:
 
 
     async def initialize(self):
-        """ Open TCP connection to Peer and perform Handshake 
-        
-        Raises PeerConnectionError if connection can't be established
-        """
+        """ Open TCP connection to Peer and perform Handshake """
         await self._conn.initialize()
     
 
     async def handshake(self):
-        """ Handshake peer 
-        
-        Raises HandshakeError
-        """
+        """ Handshake peer """
         await self._conn._handshake()
 
 
@@ -113,9 +104,9 @@ class Peer:
             # iterator returns message op code and payload
             async for op_code, payload in PeerMessageStreamIter(self._conn):
                 if self.torrent_manager.end.is_set():
-                    await asyncio.sleep(.1)
+                    # await asyncio.sleep(.1) # 
                     return
-                # print(f"Message {op_code} from peer {self.ip}:{self.port}")
+
                 await self._state.handle_message(op_code, payload)
                 await self._state.do_work()
             
@@ -124,6 +115,7 @@ class Peer:
             raise
             
         except Exception as e:
+            # TODO add debug logging
             pass
     
 
@@ -156,7 +148,7 @@ class PeerConnection:
 
 
     async def initialize(self) -> None:
-        """ Open connection to peer and complete handshake. """
+        """ Open connection to peer and complete handshake """
         self._reader, self._writer = await self._open_conn()
         await self._handshake()
 
@@ -200,13 +192,13 @@ class PeerConnection:
     
 
     async def _send(self, msg: str):
+        """ Write to StreamWriter """
         self._writer.write(msg)
         await self._writer.drain()
     
         
     async def _recv(self, size: int):
-        # TO DO, i believe this should timeout if we are not receiving messages
-        #  for some time since keep-alive messages should be expected 
+        """ Read from stream """
         read_task = self._reader.read(size)
 
         try:
@@ -222,6 +214,7 @@ class PeerConnection:
 
 
 class PeerMessageStreamIter:
+    """ Asyncio.StreamReader Iterator """
     def __init__(self, ctx: PeerConnection):
         self._ctx = ctx
 

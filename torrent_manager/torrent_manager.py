@@ -1,19 +1,19 @@
 from __future__ import annotations
 
+from typing import Protocol, Any, List
 from typing import TYPE_CHECKING
 
 import math
 import asyncio
-
-from typing import Protocol, Any, List
-from enum import Enum
-
 import bitarray
 
-from file_manager.single_file_manager import SingleFileManager 
+from enum import Enum
 
+from file_manager.single_file_manager import SingleFileManager 
 if TYPE_CHECKING:
     from peer import Peer
+
+from .torrent_status import TorrentStatus
 
 class PieceState(Enum):
     MISSING = 0
@@ -21,7 +21,8 @@ class PieceState(Enum):
     COMPLETE = 2
 
 class TorrentManager:
-    def __init__(self, meta_info: InfoDict, file_manager: SingleFileManager):
+    def __init__(self, meta_info: InfoDict, file_manager: SingleFileManager, torrent_status: TorrentStatus):
+        self._status = torrent_status
         self._meta_info    = meta_info
         self._file_manager = file_manager 
         self._endgame = False
@@ -40,17 +41,17 @@ class TorrentManager:
             if bitfield[idx]:
                 if self._pieces_state[idx] == PieceState.MISSING:
                     self._pieces_state[idx] = PieceState.PENDING
-                    if idx == 2511:
+
+                    # enter endgame mode
+                    if idx == self._total_pieces - 1:
                         self._endgame = True
                         self._first_missing_idx = 0
+
                     return idx
 
                 if self._endgame and self._pieces_state[idx] != PieceState.COMPLETE:
                     self._pieces_state[idx] = PieceState.PENDING
                     return idx
-
-        # for idx, val in enumerate(self._pieces_state, start=self._first_missing_idx):
-        #     if bitfield[idx] and val == PieceState.MISSING:
           
         return None 
 
@@ -66,10 +67,11 @@ class TorrentManager:
 
         self._file_manager.write_piece(piece_nr, piece)
         self._pieces_state[piece_nr] = PieceState.COMPLETE
-
         self._dl_pieces += 1
-        # update window
+        self._status._downloaded += 1
+
         print(f"({(self._dl_pieces * 100) / self._total_pieces :.2f}%) Got piece {piece_nr}")
+
         if not self._endgame and self._first_missing_idx == piece_nr:
             for idx in range(self._first_missing_idx, self._total_pieces):
                 if self._pieces_state[idx] == PieceState.MISSING:

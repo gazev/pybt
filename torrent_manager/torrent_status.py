@@ -1,23 +1,20 @@
-from torrent import TorrentFile
-from math import ceil
+from torrent import InfoDict
 
 class TorrentStatus:
-    def __init__(self, torrent: TorrentFile):
-        self._downloaded: int = 0
-        self._uploaded:   int = 0
-        self._total_pieces_nr: int = \
-            ceil((torrent['info']['length'] / torrent['info']['piece length']))
-            # round up the value because last piece might not fill the entire space 
+    def __init__(self, meta_info: InfoDict):
+        self._meta_info = meta_info
+        self._downloaded = 0
+        self._uploaded = 0
 
+    @property
+    def downloaded(self):
+        return self._downloaded * self._meta_info['piece length']
 
-    def get_downloaded(self) -> int:
-        return self._downloaded
+    @property
+    def uploaded(self):
+        return self._uploaded * self._meta_info['piece length']
+
+    @property
+    def left(self):
+        return (self._meta_info.total_pieces - self._downloaded) * self._meta_info['piece length']
     
-
-    def get_uploaded(self) -> int:
-        return self._uploaded
-    
-
-    def get_total_pieces_nr(self) -> int:
-        return self._total_pieces_nr
-

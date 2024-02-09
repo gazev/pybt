@@ -2,18 +2,13 @@ from __future__ import annotations
 
 from typing import Dict, Any
 
-
 import math
 import bencode
-
 from hashlib import sha1
 from functools import cached_property
 
 class BadTorrent(KeyError):
-    """ If we don't have enough information to continue with our version of the
-    protocol
-    """
-    ...
+    """ If we don't have enough information to continue with our version of the protocol """
 
 class InfoDict:
     __required_keys = {

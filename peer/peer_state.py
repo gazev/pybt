@@ -1,12 +1,12 @@
 from typing import Protocol
-from protocol import MessageOP 
-
-from time import sleep
-from hashlib import sha1
-import asyncio
 
 import bitarray
+import asyncio
 
+from hashlib import sha1
+
+from torrent import InfoDict
+from protocol import MessageOP 
 from protocol import (
     Handshake,
     Choke,
@@ -19,7 +19,6 @@ from protocol import (
     Cancel
 )
 
-from torrent import InfoDict
 
 
 
@@ -27,23 +26,28 @@ class PeerState:
     def __init__(self, ctx):
         self._ctx = ctx
     
+
     async def do_work(self):
         """ This is the important subtyping """
+        raise NotImplementedError
+
+
+    def change_state(self, state: str):
         raise NotImplementedError
 
 
     async def handle_message(self, op_code: str, payload: bytes):
         match op_code:
             case MessageOP.KEEP_ALIVE:
-                pass
+                pass # simply resets timeout counter
             case MessageOP.CHOKE:
                 self.change_state('choked')
             case MessageOP.UNCHOKE:
                 self.change_state('unchoked')
             case MessageOP.INTERESTED:
-                pass
+                self.handle_interested()
             case MessageOP.NOT_INTERESTED:
-                pass
+                self.handle_not_interested()
             case MessageOP.HAVE:
                 self.handle_have(payload)
             case MessageOP.BITFIELD:
@@ -51,20 +55,25 @@ class PeerState:
             case MessageOP.PIECE:
                 await self.handle_piece(payload)
             case MessageOP.CANCEL:
-                pass
+                self.handle_cancel(payload)
             case default:
                 pass
     
-    def change_state(self, state: str):
-        raise NotImplementedError
-        
+
+    def handle_interested(self):
+        pass
+
+
+    def handle_not_interested(self):
+        pass
+
 
     def handle_have(self, payload: int):
         try:
             self._ctx.bitfield[payload] = 1
         except IndexError:
             pass
-    
+
 
     def handle_bitfield(self, payload: bytes):
         if (len(payload) * 8) != len(self._ctx.bitfield):
@@ -75,9 +84,13 @@ class PeerState:
         self._ctx.bitfield.frombytes(payload)
 
 
-    async def handle_piece(self, payload: bytes):
+    def handle_piece(self, payload: bytes):
         pass
         
+
+    def handle_cancel(self, payload: bytes):
+        pass
+
 
 class ChokedNotInterested(PeerState):
     def change_state(self, state):
@@ -189,7 +202,7 @@ class PieceHandler:
     async def enqueue_requests(self):
         """ Enqueue block requests for a piece """
         offset = self._retr_offset 
-        for _ in range(10):
+        for _ in range(5): # enqueue 5 requests
             # if all blocks are requested
             if offset >= self._piece_len:
                 return

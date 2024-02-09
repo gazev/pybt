@@ -2,6 +2,7 @@ from typing import List, Tuple
 
 import bencode
 import aiohttp
+
 from urllib.parse import urlencode 
 from hashlib import sha1
 from ipaddress import ip_address
@@ -15,11 +16,8 @@ from tracker import (
     PeerAddr
 )
 
-from file_manager import (
-    FileManager, 
-    TorrentStatus
-)
-
+from torrent_manager import TorrentStatus
+from file_manager import FileManager
 from torrent import TorrentFile
 
 from .http_tracker_response import InvalidResponseException
@@ -37,12 +35,12 @@ from .http_tracker_response import HTTPTrackerResponse
 from .utils import peer_lst_f_raw_str
 
 class HTTPTracker(Tracker):
-    def __init__(self, client: Client, torrent: TorrentFile):
+    def __init__(self, client: Client, torrent: TorrentFile, status: TorrentStatus):
         self._client         = client
         self._torrent        = torrent
         self._http_session   = aiohttp.ClientSession()
-        # self._torrent_status = torrent_status 
         self._event_state    = 'started'
+        self._status         = status
     
 
     async def get_peers(self) -> Tuple[List[PeerAddr], int]:
@@ -97,13 +95,11 @@ class HTTPTracker(Tracker):
             'info_hash':  self._torrent.info_hash,
             'peer_id':    self._client.id,
             'port':       self._client.port,
-            # 'downloaded': self._torrent_status.get_downloaded(),
-            # 'uploaded':   self._torrent_status.get_uploaded(),
-            # 'left':       self._torrent_status.get_total_pieces_nr() - self._torrent_status.get_downloaded(),
+            'downloaded': self._status.downloaded,
+            'uploaded':   self._status.uploaded,
+            'left':       self._status.left,
             'compact':    1,
             'event':      event,
-            # 'numwant':    self._client.max_peers * 2
-            'numwant':    100 
         }
 
         return self._torrent['announce'].decode('utf-8') + '?' + urlencode(params)

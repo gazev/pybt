@@ -5,20 +5,14 @@ import asyncio
 
 from client import Client
 
+from torrent import TorrentFile
 from tracker import Tracker, PeerAddr, TrackerException
-
-from file_manager import FileManager, TorrentStatus
-
-from torrent_manager import TorrentManager
+from torrent_manager import TorrentManager, TorrentStatus
 
 from peer import Peer, PeerConnectionError
 
-from piece_algorithms import PieceSelectionAlgorithm
-
-# this must all be moved to different files (instanciation will use factories)
-from torrent import TorrentFile
+# TODO these should be initialized in a different place
 from tracker.http_tracker import HTTPTracker
-from piece_algorithms.rarest_first import RarestFirstAlgorithm
 from file_manager.single_file_manager import SingleFileManager
 
 
@@ -37,8 +31,10 @@ class Main:
 
         self.client = Client(port=port)
         self.torrent = TorrentFile.from_file(path=path)
+
         self.file_manager = SingleFileManager(self.torrent['info'])
-        self.torrent_manager = TorrentManager(self.torrent['info'], self.file_manager)
+        self.torrent_status = TorrentStatus(self.torrent['info'])
+        self.torrent_manager = TorrentManager(self.torrent['info'], self.file_manager, self.torrent_status)
 
 
     async def run(self):
@@ -46,19 +42,19 @@ class Main:
             print("Unsupported protocol version! Only HTTP Trackers allowed")
             exit(0)
 
-        # make tracker factory when UDP Trackers are supported
         tracker: Tracker = HTTPTracker(
-            client=self.client, torrent=self.torrent
+            client=self.client, torrent=self.torrent, status=self.torrent_status
         )
 
         # coroutine that periodically fetches peers from tracker
         tracker_task = asyncio.create_task(self.tracker_coro(tracker=tracker))
 
-        # coroutine that connects to peers
+        # coroutines that handles newly fetched peers
         conn_man_task = asyncio.create_task(
             self.conn_manager_coro()
         )
 
+        # coroutines that open connections and enqueue good peers
         conn_workers = [
             asyncio.create_task(self.conn_worker()) for _ in range(self.max_peers)
         ]
@@ -68,22 +64,17 @@ class Main:
             asyncio.start_server(self.server_cb, port=self.client.port)
         )
 
-
+        # workers that talk to peers    
         workers = [
             asyncio.create_task(self.worker_coro())
             for _ in range(self.max_peers)
         ]
 
-        # tracemalloc.start()
         try:
             await self.torrent_manager.end.wait()
         except (KeyboardInterrupt, asyncio.CancelledError):
             # await self.notify(self.need_peers)
             print("\nSIGINT received, terminating")
-
-        # self.torrent_manager.end.set()
-        # snapshot = tracemalloc.take_snapshot()
-        # display_top(snapshot)
 
         tracker_task.cancel()
         conn_man_task.cancel()
@@ -102,6 +93,7 @@ class Main:
         
 
     async def tracker_coro(self, tracker: Tracker):
+        """ Coroutine that periodically fetches peers when necessary """
         try:
             while not self.torrent_manager.end.is_set():
                 # TODO
@@ -119,6 +111,9 @@ class Main:
                 if peers is not None:
                     await self.pending_peers.put(peers)
                     
+                # NOTE we simply don't wait on interval because we are behind a NAT
+                # so peers can't connect to us and we need to fetch them at a constant rate
+                # because some trackers would make us wait 15 minutes which is a bit much
                 await asyncio.sleep(60)
     
         except asyncio.CancelledError:
@@ -126,7 +121,7 @@ class Main:
     
 
     async def conn_manager_coro(self):
-        """ Coroutine responsible for handshaking peers """
+        """ Coroutine responsible for managing new peers """
         try:
             while not self.torrent_manager.end.is_set():
                 pending_peers = await self.pending_peers.get()
@@ -147,6 +142,7 @@ class Main:
 
 
     async def conn_worker(self):
+        """ Coroutines that connect to peers and enqueue good ones to workers """
         try:
             while not self.torrent_manager.end.is_set():
                 peer_addr = await self.peers_awaiting_connection.get()
@@ -189,11 +185,11 @@ class Main:
 
 
     async def worker_coro(self):
+        """ Worker coroutine that talks to a peer """
         try:
             while not self.torrent_manager.end.is_set():
                 peer: Peer = await self.work_queue.get()
                 self.active_peers.add(peer)
-
                 try:
                     await peer.run()
                 except PeerConnectionError as e:
@@ -203,6 +199,7 @@ class Main:
                         await self.notify(self.need_peers)
                 except asyncio.CancelledError:
                     return
+
                 finally:
                     await peer.end()
 
