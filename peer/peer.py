@@ -104,7 +104,6 @@ class Peer:
             # iterator returns message op code and payload
             async for op_code, payload in PeerMessageStreamIter(self._conn):
                 if self.torrent_manager.end.is_set():
-                    # await asyncio.sleep(.1) # 
                     return
 
                 await self._state.handle_message(op_code, payload)

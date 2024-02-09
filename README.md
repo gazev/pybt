@@ -13,4 +13,6 @@ I will hopefully work on UDP Trackers and seeding, as it isn't super complex to 
 
 For UDP Trackers the great deal is finding a concurrent library capable of doing DNS queries and async UDP sockets, which might aswell be built from the ground up given it's simplicity.
 
+Running this on a Python version < 3.11.7 will emit some warnings, [newer versions fixed this](https://github.com/python/cpython/issues/109538).
+
 Showcase video: [PyBT](https://www.youtube.com/watch?v=MUlLtGutd-4)
