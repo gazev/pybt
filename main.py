@@ -56,7 +56,7 @@ class Main:
 
         # coroutines that open connections and enqueue good peers
         conn_workers = [
-            asyncio.create_task(self.conn_worker()) for _ in range(self.max_peers)
+            asyncio.create_task(self.conn_worker()) for _ in range(self.max_peers * 2)
         ]
 
         # coroutine listens for incoming peer connections
@@ -250,9 +250,9 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     if (args.max_peer < 0 or args.max_peer > 50):
-        print("Invalid arguments, max number of peers must be positive a less than 50")
+        print("Invalid arguments, max number of peers must be positive and less than 50")
         exit(0)
-    if (args.port < 0 or args.port > 2**16):
+    if (args.port < 0 or args.port >= 2**16):
         print("Invalid port")
         exit(0)
 

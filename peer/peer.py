@@ -116,6 +116,7 @@ class Peer:
             
         except Exception as e:
             # TODO add debug logging
+            print(repr(e))
             pass
     
 
